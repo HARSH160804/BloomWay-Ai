@@ -8,7 +8,7 @@
 
 ## 1. Overview
 
-**BloomWay AI** is an AI-powered learning assistant that helps developers and students understand unfamiliar codebases. The system generates architecture summaries, provides file-level explanations, enables interactive Q&A, and produces documentation—all through natural language powered by Large Language Models.
+**BloomWay AI** is an AI-powered learning assistant that helps developers and students understand unfamiliar codebases. The system generates architecture summaries, provides file-level explanations, enables interactive Q&A, and produces documentation—all through natural language powered by Amazon Bedrock foundation models. The system is built on AWS infrastructure using managed services for scalability and reliability.
 
 ---
 
@@ -36,11 +36,21 @@ Existing solutions fall short:
 
 BloomWay AI aims to:
 
-1. **Reduce codebase onboarding time** by providing instant, accurate explanations
+1. **Reduce codebase onboarding time** by providing instant, accurate explanations powered by generative AI
 2. **Enable self-service learning** without requiring human mentorship for basic questions
-3. **Generate architectural understanding** that would normally take hours of manual exploration
-4. **Support iterative exploration** through conversational Q&A
-5. **Produce usable documentation** as a byproduct of analysis
+3. **Generate architectural understanding** through AI-driven analysis that would normally take hours of manual exploration
+4. **Support iterative exploration** through conversational Q&A grounded in actual code
+5. **Produce usable documentation** as a byproduct of AI-powered analysis
+
+### Why Generative AI is Essential
+
+BloomWay AI leverages Amazon Bedrock foundation models to deliver capabilities that cannot be achieved through rule-based approaches:
+
+- **Semantic understanding of code**: Comprehend intent and purpose beyond syntax
+- **Cross-file reasoning**: Infer relationships and data flow across multiple files
+- **Natural language explanations**: Generate human-readable summaries tailored to user expertise level
+- **Visual architecture synthesis**: Create conceptual diagrams from code structure
+- **Context-aware question answering**: Provide accurate answers grounded in retrieved code context
 
 ---
 
@@ -89,7 +99,7 @@ The following are explicitly **out of scope** for this project:
 | FR-1.3 | The system shall accept uploaded ZIP archives of local projects |
 | FR-1.4 | The system shall display ingestion progress to the user |
 | FR-1.5 | The system shall support codebases written in Python, JavaScript, TypeScript, Java, and Go |
-| FR-1.6 | The system shall handle repositories with up to 10,000 files |
+| FR-1.6 | The system shall support repositories with up to 500 files for MVP, with scalability to larger repositories in future versions |
 
 ### 6.2 Code Summarization
 
@@ -105,19 +115,19 @@ The following are explicitly **out of scope** for this project:
 
 | ID | Requirement |
 |----|-------------|
-| FR-3.1 | The system shall generate a high-level architecture overview of the entire codebase |
+| FR-3.1 | The system shall generate a high-level architecture overview of the entire codebase based on repository structure, entry points, detected technologies, and AI reasoning |
 | FR-3.2 | The system shall identify major components/modules and their responsibilities |
 | FR-3.3 | The system shall detect architectural patterns (MVC, microservices, monolith, etc.) |
-| FR-3.4 | The system shall explain how data flows through the system |
+| FR-3.4 | The system shall explain how data flows through the system at a high level |
 | FR-3.5 | The system shall identify entry points and configuration files |
-| FR-3.6 | The system shall show relationships between modules |
+| FR-3.6 | The system shall generate a high-level architecture flowchart using Mermaid.js showing major components, module relationships, and data flow (AI-generated, conceptual, not guaranteed to be fully precise) |
 
 ### 6.4 Interactive Q&A
 
 | ID | Requirement |
 |----|-------------|
 | FR-4.1 | The system shall allow users to ask free-form questions about the codebase |
-| FR-4.2 | The system shall provide answers with references to specific files and line numbers |
+| FR-4.2 | The system shall provide answers generated using retrieved code context (RAG-style) with references to relevant files or components when possible |
 | FR-4.3 | The system shall maintain conversation context for follow-up questions |
 | FR-4.4 | The system shall allow scoping questions to specific directories or files |
 | FR-4.5 | The system shall suggest related follow-up questions |
@@ -131,7 +141,7 @@ The following are explicitly **out of scope** for this project:
 | FR-5.2 | The system shall produce API documentation for exposed endpoints |
 | FR-5.3 | The system shall create a getting-started guide based on the codebase structure |
 | FR-5.4 | The system shall allow exporting documentation in Markdown format |
-| FR-5.5 | The system shall identify undocumented functions and generate suggested docstrings |
+| FR-5.5 | The system shall identify undocumented functions and generate suggested docstrings on-demand for top-level public functions when explicitly requested by the user |
 
 ---
 
@@ -210,10 +220,11 @@ The following are explicitly **out of scope** for this project:
 
 | Constraint | Impact |
 |------------|--------|
-| LLM context window limits | Large files must be chunked; cross-file reasoning is bounded |
-| LLM API rate limits | Concurrent request handling must include queuing |
+| Foundation model context window limits | Large files must be chunked; cross-file reasoning is bounded |
+| Amazon Bedrock API rate limits | Concurrent request handling must include queuing |
 | Embedding generation costs | Caching strategy required for sustainability |
 | GitHub API rate limits | Repository cloning must respect API quotas |
+| AWS service quotas | Lambda concurrency and API Gateway limits must be monitored |
 
 ### 9.2 Scope Constraints
 
@@ -228,7 +239,8 @@ The following are explicitly **out of scope** for this project:
 - Users have basic programming literacy
 - Target repositories contain primarily text-based source code
 - Users have stable internet connectivity
-- LLM API services (OpenAI, Google) remain available
+- Amazon Bedrock foundation model APIs remain available
+- AWS infrastructure services maintain expected availability
 
 ---
 
