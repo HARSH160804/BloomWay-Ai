@@ -6,6 +6,7 @@ import json
 import os
 import re
 from datetime import datetime, timedelta
+from decimal import Decimal
 from typing import Dict, Any, List, Optional
 from urllib.parse import unquote
 import boto3
@@ -93,7 +94,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             return {
                 'statusCode': 200,
                 'headers': CORS_HEADERS,
-                'body': json.dumps(cached_result)
+                'body': json.dumps(cached_result, default=_decimal_default)
             }
         
         # Step 2: Verify repository exists
@@ -216,6 +217,24 @@ def _get_cached_explanation(repo_id: str, file_path: str, level: str) -> Optiona
         return None
 
 
+def _decimal_default(obj):
+    """JSON serializer for Decimal types from DynamoDB."""
+    if isinstance(obj, Decimal):
+        return int(obj) if obj == int(obj) else float(obj)
+    raise TypeError(f"Object of type {type(obj)} is not JSON serializable")
+
+
+def _convert_floats(obj):
+    """Recursively convert float values to Decimal for DynamoDB."""
+    if isinstance(obj, float):
+        return Decimal(str(obj))
+    elif isinstance(obj, dict):
+        return {k: _convert_floats(v) for k, v in obj.items()}
+    elif isinstance(obj, list):
+        return [_convert_floats(i) for i in obj]
+    return obj
+
+
 def _cache_explanation(repo_id: str, file_path: str, level: str, data: Dict[str, Any]) -> None:
     """Cache explanation result in DynamoDB.
     
@@ -227,7 +246,7 @@ def _cache_explanation(repo_id: str, file_path: str, level: str, data: Dict[str,
         sort_key = f"{file_path}#{level}"
         ttl = int((datetime.utcnow() + timedelta(hours=CACHE_TTL_HOURS)).timestamp())
         
-        cache_table.put_item(Item={
+        cache_table.put_item(Item=_convert_floats({
             'repo_id': repo_id,
             'sort_key': sort_key,
             'file_path': file_path,
@@ -235,7 +254,7 @@ def _cache_explanation(repo_id: str, file_path: str, level: str, data: Dict[str,
             'data': data,
             'ttl': ttl,
             'created_at': datetime.utcnow().isoformat() + 'Z'
-        })
+        }))
         
         print(f"Cached explanation for repo={repo_id} key={sort_key}")
     except Exception as e:
