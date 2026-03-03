@@ -1,0 +1,399 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: BloomWay AI - Comprehensive serverless codebase understanding tool
+
+Globals:
+  Function:
+    Runtime: python3.9
+    Architectures:
+      - arm64
+    Environment:
+      Variables:
+        SESSIONS_TABLE: !Ref SessionsTable
+        REPOSITORIES_TABLE: !Ref RepositoriesTable
+        EMBEDDINGS_TABLE: !Ref EmbeddingsTable
+        CODE_BUCKET: !Ref CodeArtifactsBucket
+        CACHE_TABLE: !Ref CacheTable
+        BEDROCK_REGION: !Ref AWS::Region
+  Api:
+    Cors:
+      AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+      AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+      AllowOrigin: "'*'"
+
+Resources:
+  # API Gateway
+  BloomWayApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      StageName: Prod
+      BinaryMediaTypes:
+        - 'multipart/form-data'
+      Cors:
+        AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+        AllowOrigin: "'*'"
+
+  # Lambda Functions
+  IngestRepoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.ingest_repo.lambda_handler
+      MemorySize: 512
+      Timeout: 300
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RepositoriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EmbeddingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - S3CrudPolicy:
+            BucketName: !Ref CodeArtifactsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        IngestRepo:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/ingest
+            Method: POST
+
+  GetRepoStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.ingest_repo.get_status_handler
+      MemorySize: 256
+      Timeout: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepositoriesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        GetStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/{id}/status
+            Method: GET
+
+  ArchitectureFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.architecture.lambda_handler
+      MemorySize: 512
+      Timeout: 120
+      Environment:
+        Variables:
+          CACHE_TABLE_NAME: BloomWay-Cache
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepositoriesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref EmbeddingsTable
+        - S3ReadPolicy:
+            BucketName: !Ref CodeArtifactsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - dynamodb:GetItem
+                - dynamodb:PutItem
+                - dynamodb:UpdateItem
+                - dynamodb:DeleteItem
+                - dynamodb:Query
+              Resource: !GetAtt CacheTable.Arn
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        GetArchitecture:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/{id}/architecture
+            Method: GET
+
+  ExplainFileFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.explain_file.lambda_handler
+      MemorySize: 256
+      Timeout: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepositoriesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref EmbeddingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref CacheTable
+        - S3ReadPolicy:
+            BucketName: !Ref CodeArtifactsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        ExplainFile:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/{id}/files/{path}
+            Method: GET
+
+  ChatFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.chat.lambda_handler
+      MemorySize: 512
+      Timeout: 60
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref EmbeddingsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepositoriesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        Chat:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/{id}/chat
+            Method: POST
+
+  GenerateDocsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.generate_docs.lambda_handler
+      MemorySize: 512
+      Timeout: 120
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref SessionsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepositoriesTable
+        - S3CrudPolicy:
+            BucketName: !Ref CodeArtifactsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        GenerateDocs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/{id}/docs
+            Method: POST
+
+  # DynamoDB Tables
+  SessionsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: BloomWay-Sessions
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: session_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: session_id
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Application
+          Value: BloomWay-AI
+
+  RepositoriesTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: BloomWay-Repositories
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: repo_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: repo_id
+          KeyType: HASH
+      Tags:
+        - Key: Application
+          Value: BloomWay-AI
+
+  EmbeddingsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: BloomWay-Embeddings
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: repo_id
+          AttributeType: S
+        - AttributeName: chunk_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: repo_id
+          KeyType: HASH
+        - AttributeName: chunk_id
+          KeyType: RANGE
+      Tags:
+        - Key: Application
+          Value: BloomWay-AI
+
+  CacheTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: BloomWay-Cache
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: cache_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: cache_key
+          KeyType: HASH
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      Tags:
+        - Key: Application
+          Value: BloomWay-AI
+
+  # S3 Bucket
+  CodeArtifactsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'bloomway-code-${AWS::AccountId}-${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteAfter1Day
+            Status: Enabled
+            ExpirationInDays: 1
+            NoncurrentVersionExpirationInDays: 1
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Application
+          Value: BloomWay-AI
+
+  # S3 Bucket Policy
+  CodeArtifactsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref CodeArtifactsBucket
+      PolicyDocument:
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - s3:GetObject
+              - s3:PutObject
+              - s3:DeleteObject
+            Resource: !Sub '${CodeArtifactsBucket.Arn}/*'
+            Condition:
+              StringEquals:
+                aws:SourceAccount: !Ref AWS::AccountId
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${BloomWayApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/'
+    Export:
+      Name: BloomWayApiEndpoint
+
+  SessionsTableName:
+    Description: DynamoDB Sessions table name
+    Value: !Ref SessionsTable
+    Export:
+      Name: BloomWaySessionsTable
+
+  RepositoriesTableName:
+    Description: DynamoDB Repositories table name
+    Value: !Ref RepositoriesTable
+    Export:
+      Name: BloomWayRepositoriesTable
+
+  EmbeddingsTableName:
+    Description: DynamoDB Embeddings table name
+    Value: !Ref EmbeddingsTable
+    Export:
+      Name: BloomWayEmbeddingsTable
+
+  CodeBucketName:
+    Description: S3 bucket for code artifacts
+    Value: !Ref CodeArtifactsBucket
+    Export:
+      Name: BloomWayCodeBucket
+
+  CacheTableName:
+    Description: DynamoDB Cache table name
+    Value: !Ref CacheTable
+    Export:
+      Name: BloomWayCacheTable
