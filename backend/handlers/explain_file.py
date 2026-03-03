@@ -122,6 +122,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Step 5.5: Retrieve top-3 related chunks for repo context
         related_context_chunks = []
+        similarity_scores = []
         try:
             sample_embedding = bedrock_client.generate_embedding(file_content[:500])
             related_results = vector_store.search(repo_id, sample_embedding, top_k=5)
@@ -131,6 +132,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                         'file_path': rc['file_path'],
                         'snippet': rc['content'][:300]
                     })
+                    # Capture similarity score if available
+                    score = rc.get('score', rc.get('similarity', 0))
+                    similarity_scores.append(float(score))
                 if len(related_context_chunks) >= 3:
                     break
         except Exception as e:
@@ -150,6 +154,11 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 file_path, file_content, file_metadata,
                 static_analysis, complexity_result
             )
+        
+        # Step 6.5: Override confidence with deterministic computation
+        explanation['confidence'] = _compute_deterministic_confidence(
+            similarity_scores, len(related_context_chunks), len(file_content)
+        )
         
         # Step 7: Identify related files
         related_files = _identify_related_files(file_path, file_content, repo_id)
@@ -539,6 +548,39 @@ def _generate_fallback_explanation(
         'impactAssessment': '',
         'confidence': 0.0
     }
+
+
+def _compute_deterministic_confidence(
+    similarity_scores: List[float],
+    chunk_count: int,
+    file_size: int
+) -> float:
+    """
+    Compute deterministic confidence that overrides LLM confidence.
+
+    Rules:
+        High  (0.9) — avg similarity > 0.8 AND chunks >= 2
+        Medium(0.7) — avg similarity > 0.6
+        Low   (0.4) — everything else
+
+    A small bonus is added for larger files (more context available).
+    """
+    if not similarity_scores:
+        return 0.3  # No related context at all
+
+    avg_sim = sum(similarity_scores) / len(similarity_scores)
+
+    if avg_sim > 0.8 and chunk_count >= 2:
+        base = 0.9
+    elif avg_sim > 0.6:
+        base = 0.7
+    else:
+        base = 0.4
+
+    # Small file-size bonus (caps at +0.05 for files > 2 KB)
+    size_bonus = min(0.05, file_size / 40000)
+
+    return round(min(1.0, base + size_bonus), 2)
 
 
 def _identify_related_files(file_path: str, content: str, repo_id: str) -> List[str]:
