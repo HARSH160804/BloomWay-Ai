@@ -405,9 +405,28 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         _sort_tree(file_tree)
         print(f"File tree built with {len(files)} entries")
         
-        # Step 6: Generate architecture summary
-        print("Generating architecture summary...")
+        # Step 6: Detect tech stack
+        print("Detecting tech stack...")
         tech_stack = processor.detect_tech_stack(files)
+        
+        # Step 6.5: Deep-scan manifest files for frameworks, databases, language
+        print("Scanning manifest files...")
+        detected_stack = _scan_manifest_files(repo_path)
+        # Merge detected data into tech_stack
+        for fw in detected_stack.get('frameworks', []):
+            if fw not in tech_stack.get('frameworks', []):
+                tech_stack.setdefault('frameworks', []).append(fw)
+        for db in detected_stack.get('databases', []):
+            tech_stack.setdefault('databases', []).append(db)
+        for lang in detected_stack.get('languages', []):
+            if lang not in tech_stack.get('languages', []):
+                tech_stack.setdefault('languages', []).append(lang)
+        # Store the raw detected_stack separately for richer metadata
+        tech_stack['detected_stack'] = detected_stack
+        print(f"Manifest scan complete: {json.dumps(detected_stack, default=str)}")
+        
+        # Step 6.6: Generate architecture summary
+        print("Generating architecture summary...")
         
         # Build context for architecture analysis
         file_list = "\n".join([f"- {f['path']}" for f in files[:50]])  # Limit to first 50
@@ -578,6 +597,161 @@ def get_status_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     except Exception as e:
         print(f"Unexpected error in get_status_handler: {str(e)}")
         return _error_response(500, f"Internal server error: {str(e)}")
+
+
+# ── Known-keyword lookup tables for manifest scanning ────────────
+_JS_FRAMEWORKS = {
+    'react': 'React', 'next': 'Next.js', 'vue': 'Vue.js', 'nuxt': 'Nuxt.js',
+    'angular': 'Angular', 'svelte': 'Svelte', 'express': 'Express',
+    'fastify': 'Fastify', 'nestjs': 'NestJS', 'koa': 'Koa',
+    'gatsby': 'Gatsby', 'remix': 'Remix', 'electron': 'Electron',
+    'tailwindcss': 'TailwindCSS', 'vite': 'Vite',
+}
+_PY_FRAMEWORKS = {
+    'django': 'Django', 'flask': 'Flask', 'fastapi': 'FastAPI',
+    'tornado': 'Tornado', 'celery': 'Celery', 'scrapy': 'Scrapy',
+    'pytest': 'pytest', 'pandas': 'Pandas', 'numpy': 'NumPy',
+    'boto3': 'AWS SDK (boto3)', 'tensorflow': 'TensorFlow',
+    'torch': 'PyTorch', 'langchain': 'LangChain',
+    'streamlit': 'Streamlit', 'sqlalchemy': 'SQLAlchemy',
+}
+_DB_KEYWORDS = {
+    'mongoose': 'MongoDB', 'mongodb': 'MongoDB', 'pymongo': 'MongoDB',
+    'pg': 'PostgreSQL', 'psycopg2': 'PostgreSQL', 'postgres': 'PostgreSQL',
+    'mysql': 'MySQL', 'mysql2': 'MySQL',
+    'redis': 'Redis', 'ioredis': 'Redis',
+    'sqlite3': 'SQLite', 'sqlite': 'SQLite',
+    'dynamodb': 'DynamoDB', 'boto3': 'DynamoDB',
+    'sequelize': 'SQL (Sequelize)', 'prisma': 'Prisma ORM',
+    'typeorm': 'TypeORM', 'knex': 'Knex.js',
+    'elasticsearch': 'Elasticsearch', 'cassandra': 'Cassandra',
+}
+
+
+def _scan_manifest_files(repo_path: str) -> Dict[str, Any]:
+    """
+    Scan common manifest/config files for frameworks, databases, and language.
+
+    Scans:
+        package.json, requirements.txt, Dockerfile, go.mod, pom.xml
+
+    Returns:
+        {
+            "frameworks": [...],
+            "databases": [...],
+            "languages": [...],
+            "manifests_found": [...]
+        }
+    """
+    frameworks = set()
+    databases = set()
+    languages = set()
+    manifests_found = []
+
+    for dirpath, _dirs, filenames in os.walk(repo_path):
+        for fname in filenames:
+            fpath = os.path.join(dirpath, fname)
+
+            try:
+                if fname == 'package.json':
+                    manifests_found.append('package.json')
+                    languages.add('JavaScript')
+                    with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                        pkg = json.loads(f.read())
+                    all_deps = {}
+                    all_deps.update(pkg.get('dependencies', {}))
+                    all_deps.update(pkg.get('devDependencies', {}))
+                    for dep_name in all_deps:
+                        dep_lower = dep_name.lower().replace('@', '').split('/')[0]
+                        if dep_lower in _JS_FRAMEWORKS:
+                            frameworks.add(_JS_FRAMEWORKS[dep_lower])
+                        if dep_lower in _DB_KEYWORDS:
+                            databases.add(_DB_KEYWORDS[dep_lower])
+                    if 'typescript' in all_deps or 'ts-node' in all_deps:
+                        languages.add('TypeScript')
+
+                elif fname == 'requirements.txt':
+                    manifests_found.append('requirements.txt')
+                    languages.add('Python')
+                    with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                        for line in f:
+                            dep = re.split(r'[>=<!\[\]]', line.strip().lower())[0].strip()
+                            if dep in _PY_FRAMEWORKS:
+                                frameworks.add(_PY_FRAMEWORKS[dep])
+                            if dep in _DB_KEYWORDS:
+                                databases.add(_DB_KEYWORDS[dep])
+
+                elif fname == 'Dockerfile':
+                    manifests_found.append('Dockerfile')
+                    with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read().lower()
+                    if 'python' in content:
+                        languages.add('Python')
+                    if 'node' in content:
+                        languages.add('JavaScript')
+                    if 'golang' in content or 'FROM go' in content:
+                        languages.add('Go')
+                    if 'java' in content:
+                        languages.add('Java')
+                    if 'postgres' in content:
+                        databases.add('PostgreSQL')
+                    if 'mysql' in content:
+                        databases.add('MySQL')
+                    if 'redis' in content:
+                        databases.add('Redis')
+                    if 'mongo' in content:
+                        databases.add('MongoDB')
+
+                elif fname == 'go.mod':
+                    manifests_found.append('go.mod')
+                    languages.add('Go')
+                    with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read().lower()
+                    if 'gin-gonic' in content:
+                        frameworks.add('Gin')
+                    if 'echo' in content:
+                        frameworks.add('Echo')
+                    if 'fiber' in content:
+                        frameworks.add('Fiber')
+                    if 'gorm' in content:
+                        frameworks.add('GORM')
+                    if 'mongo-driver' in content:
+                        databases.add('MongoDB')
+                    if 'pgx' in content or 'pq' in content:
+                        databases.add('PostgreSQL')
+                    if 'go-redis' in content:
+                        databases.add('Redis')
+
+                elif fname == 'pom.xml':
+                    manifests_found.append('pom.xml')
+                    languages.add('Java')
+                    with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                        content = f.read().lower()
+                    if 'spring-boot' in content:
+                        frameworks.add('Spring Boot')
+                    if 'spring-web' in content or 'spring-mvc' in content:
+                        frameworks.add('Spring MVC')
+                    if 'hibernate' in content:
+                        frameworks.add('Hibernate')
+                    if 'mysql' in content:
+                        databases.add('MySQL')
+                    if 'postgresql' in content:
+                        databases.add('PostgreSQL')
+                    if 'mongodb' in content or 'mongo' in content:
+                        databases.add('MongoDB')
+                    if 'redis' in content:
+                        databases.add('Redis')
+
+            except Exception as e:
+                print(f"Warning: Failed to scan {fpath}: {str(e)}")
+                continue
+
+    return {
+        'frameworks': sorted(list(frameworks)),
+        'databases': sorted(list(databases)),
+        'languages': sorted(list(languages)),
+        'manifests_found': manifests_found
+    }
 
 
 def _error_response(status_code: int, message: str) -> Dict[str, Any]:
