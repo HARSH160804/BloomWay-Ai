@@ -19,6 +19,8 @@ sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
 from bedrock_client import BedrockClient
 from vector_store import DynamoDBVectorStore
 from code_processor import RepositoryProcessor
+from complexity_analyzer import compute_complexity
+from static_analysis import analyze_file_metadata
 
 
 # Initialize shared resources
@@ -113,16 +115,41 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Step 4: Reconstruct file content from chunks
         file_content = _reconstruct_file_content(file_chunks)
         
-        # Step 5: Extract file metadata
+        # Step 5: Extract file metadata + static analysis + complexity
         file_metadata = _extract_file_metadata(file_content, file_path)
+        static_analysis = analyze_file_metadata(file_content)
+        complexity_result = compute_complexity(file_content)
         
-        # Step 6: Generate explanation with Bedrock
+        # Step 5.5: Retrieve top-3 related chunks for repo context
+        related_context_chunks = []
+        try:
+            sample_embedding = bedrock_client.generate_embedding(file_content[:500])
+            related_results = vector_store.search(repo_id, sample_embedding, top_k=5)
+            for rc in related_results:
+                if rc['file_path'] != file_path:
+                    related_context_chunks.append({
+                        'file_path': rc['file_path'],
+                        'snippet': rc['content'][:300]
+                    })
+                if len(related_context_chunks) >= 3:
+                    break
+        except Exception as e:
+            print(f"Warning: Failed to retrieve related context: {str(e)}")
+        
+        # Step 6: Generate explanation with Bedrock (no streaming)
         print(f"Generating {level} explanation with Bedrock...")
         try:
-            explanation = _generate_explanation(file_path, file_content, file_metadata, level)
+            explanation = _generate_explanation(
+                file_path, file_content, file_metadata,
+                static_analysis, complexity_result,
+                related_context_chunks, level
+            )
         except Exception as e:
             print(f"Failed to generate explanation: {str(e)}")
-            explanation = _generate_fallback_explanation(file_path, file_content, file_metadata)
+            explanation = _generate_fallback_explanation(
+                file_path, file_content, file_metadata,
+                static_analysis, complexity_result
+            )
         
         # Step 7: Identify related files
         related_files = _identify_related_files(file_path, file_content, repo_id)
@@ -316,119 +343,201 @@ def _extract_dependencies(content: str, language: str) -> List[str]:
     return dependencies[:20]  # Limit to first 20
 
 
-def _generate_explanation(file_path: str, content: str, metadata: Dict[str, Any], level: str) -> Dict[str, Any]:
-    """Generate explanation using Bedrock."""
-    # Build level-specific prompt
-    level_prompts = {
-        'beginner': """Explain this code file as if teaching a CS freshman who is just learning to program.
-- Use simple terminology and avoid jargon
-- Explain what the code does at a high level
-- Describe the main purpose and functionality
-- Keep explanations clear and accessible""",
-        
-        'intermediate': """Explain this code file assuming familiarity with common frameworks and programming patterns.
-- Include implementation details and design patterns
-- Explain how it fits into the larger system
-- Describe key functions and their interactions
-- Mention important dependencies and their roles""",
-        
-        'advanced': """Explain this code file focusing on design trade-offs, patterns, and architectural decisions.
-- Analyze optimization techniques and performance considerations
-- Discuss edge cases and error handling strategies
-- Evaluate architectural implications and scalability
-- Critique design choices and suggest alternatives"""
+def _generate_explanation(
+    file_path: str,
+    content: str,
+    metadata: Dict[str, Any],
+    static_analysis: Dict[str, Any],
+    complexity_result: Dict[str, Any],
+    related_context: List[Dict[str, str]],
+    level: str
+) -> Dict[str, Any]:
+    """Generate explanation using Bedrock with strict JSON schema."""
+    level_guidance = {
+        'beginner': 'Use simple terminology. Avoid jargon. Explain like teaching a CS freshman.',
+        'intermediate': 'Include implementation details, design patterns, and system context.',
+        'advanced': 'Focus on trade-offs, performance, edge cases, and architectural critique.'
     }
-    
-    level_instruction = level_prompts.get(level, level_prompts['intermediate'])
-    
-    # Build context
-    func_list = '\n'.join([f"- Line {f['line']}: {f['name']}()" for f in metadata['function_list'][:5]])
-    dep_list = ', '.join(metadata['dependencies'][:10])
-    
-    prompt = f"""Analyze this {metadata['language']} file and provide a structured explanation.
+    guidance = level_guidance.get(level, level_guidance['intermediate'])
 
-File: {file_path}
+    # Build context sections
+    func_list = '\n'.join([f"  - {f['name']}() at line {f['line']}" for f in metadata['function_list'][:8]])
+    dep_list = ', '.join(metadata['dependencies'][:15])
+    sa_imports = ', '.join(static_analysis.get('imports', [])[:15])
+    sa_funcs = ', '.join(static_analysis.get('function_names', [])[:10])
+    sa_classes = ', '.join(static_analysis.get('class_names', [])[:5])
+    sa_async = ', '.join(static_analysis.get('async_usage', []))
+    sa_db = ', '.join(static_analysis.get('db_keywords', [])[:10])
+    sa_api = ', '.join(static_analysis.get('api_patterns', [])[:10])
+    cx = complexity_result.get('metrics', {})
+    cx_score = complexity_result.get('score', 1)
+
+    related_ctx_str = ''
+    if related_context:
+        parts = []
+        for rc in related_context:
+            parts.append(f"  [{rc['file_path']}]: {rc['snippet'][:200]}")
+        related_ctx_str = '\n'.join(parts)
+    else:
+        related_ctx_str = '  (none available)'
+
+    prompt = f"""You are a senior software engineer analyzing a codebase.
+Analyze the following {metadata['language']} file at a {level} level.
+
+{guidance}
+
+=== FILE INFO ===
+Path: {file_path}
 Language: {metadata['language']}
-Lines of code: {metadata['code_lines']}
-Functions: {metadata['functions']}
+Total lines: {metadata['lines']}  |  Code lines: {metadata['code_lines']}
 
-Key Functions:
-{func_list if func_list else 'None detected'}
+=== STATIC ANALYSIS ===
+Imports: {sa_imports or 'none'}
+Functions: {sa_funcs or 'none'}
+Classes: {sa_classes or 'none'}
+Async usage: {sa_async or 'none'}
+DB keywords: {sa_db or 'none'}
+API patterns: {sa_api or 'none'}
 
-Dependencies: {dep_list if dep_list else 'None detected'}
+=== COMPLEXITY METRICS (deterministic) ===
+Score: {cx_score}/10
+Function count: {cx.get('function_count', 0)}
+Class count: {cx.get('class_count', 0)}
+Async count: {cx.get('async_count', 0)}
+Deep nesting lines: {cx.get('nesting_estimate', 0)}
+Try/catch blocks: {cx.get('try_catch_count', 0)}
 
-Code:
+=== RELATED REPOSITORY CONTEXT (top 3 files) ===
+{related_ctx_str}
+
+=== SOURCE CODE ===
 ```
-{content[:3000]}  
+{content[:4000]}
 ```
 
-{level_instruction}
+Respond with ONLY a valid JSON object matching this EXACT schema (no markdown, no commentary):
 
-Respond with a JSON object with this structure:
 {{
-    "purpose": "Brief description of file's main purpose",
-    "key_functions": [
-        {{"name": "function_name", "description": "what it does", "line": line_number}}
-    ],
-    "patterns": ["Pattern1", "Pattern2"],
-    "dependencies": ["dep1", "dep2"],
-    "complexity": {{"lines": {metadata['lines']}, "functions": {metadata['functions']}}}
-}}
+  "purpose": "One-sentence purpose of this file",
+  "businessContext": "How this file fits into the overall system/product",
+  "executionFlow": [
+    "Step 1 description",
+    "Step 2 description"
+  ],
+  "keyFunctions": [
+    {{"name": "func_name", "description": "what it does", "line": 0}}
+  ],
+  "designPatterns": ["Pattern1"],
+  "dependencies": ["dep1"],
+  "complexity": {{
+    "score": {cx_score},
+    "reasoning": "Brief explanation of complexity score"
+  }},
+  "improvementSuggestions": ["suggestion1"],
+  "securityRisks": ["risk1 or none"],
+  "impactAssessment": "What would break if this file were modified",
+  "confidence": 0.9
+}}"""
 
-Respond with ONLY valid JSON, no markdown formatting."""
-    
     response = bedrock_client.invoke_claude(
         prompt=prompt,
-        max_tokens=2048,
-        temperature=0.3
+        max_tokens=3000,
+        temperature=0.2
     )
-    
-    # Parse JSON response
+
+    return _parse_and_validate_json(response, metadata, complexity_result)
+
+
+def _parse_and_validate_json(
+    response: str,
+    metadata: Dict[str, Any],
+    complexity_result: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Parse LLM response as JSON, validate required fields, handle malformation."""
+    # Strip markdown fences if present
+    json_str = response.strip()
+    if '```json' in json_str:
+        start = json_str.find('```json') + 7
+        end = json_str.find('```', start)
+        json_str = json_str[start:end].strip()
+    elif '```' in json_str:
+        start = json_str.find('```') + 3
+        end = json_str.find('```', start)
+        json_str = json_str[start:end].strip()
+
     try:
-        if '```json' in response:
-            start = response.find('```json') + 7
-            end = response.find('```', start)
-            json_str = response[start:end].strip()
-        elif '```' in response:
-            start = response.find('```') + 3
-            end = response.find('```', start)
-            json_str = response[start:end].strip()
-        else:
-            json_str = response.strip()
-        
         explanation = json.loads(json_str)
-        
-        # Ensure all required fields
-        if 'purpose' not in explanation:
-            explanation['purpose'] = 'Purpose not available'
-        if 'key_functions' not in explanation:
-            explanation['key_functions'] = []
-        if 'patterns' not in explanation:
-            explanation['patterns'] = []
-        if 'dependencies' not in explanation:
-            explanation['dependencies'] = metadata['dependencies']
-        if 'complexity' not in explanation:
-            explanation['complexity'] = {'lines': metadata['lines'], 'functions': metadata['functions']}
-        
-        return explanation
-        
     except (json.JSONDecodeError, ValueError) as e:
         print(f"Failed to parse explanation JSON: {str(e)}")
-        print(f"Response was: {response[:500]}")
-        raise
+        print(f"Raw response (first 500 chars): {response[:500]}")
+        # Attempt to extract JSON object from noisy output
+        brace_start = json_str.find('{')
+        brace_end = json_str.rfind('}')
+        if brace_start != -1 and brace_end > brace_start:
+            try:
+                explanation = json.loads(json_str[brace_start:brace_end + 1])
+            except (json.JSONDecodeError, ValueError):
+                raise
+        else:
+            raise
+
+    # Schema enforcement — fill missing fields with safe defaults
+    cx = complexity_result.get('metrics', {})
+    defaults = {
+        'purpose': 'Purpose could not be determined',
+        'businessContext': '',
+        'executionFlow': [],
+        'keyFunctions': [],
+        'designPatterns': [],
+        'dependencies': metadata.get('dependencies', []),
+        'complexity': {
+            'score': complexity_result.get('score', 1),
+            'reasoning': 'Auto-computed from deterministic metrics'
+        },
+        'improvementSuggestions': [],
+        'securityRisks': [],
+        'impactAssessment': '',
+        'confidence': 0.5
+    }
+    for key, default_val in defaults.items():
+        if key not in explanation:
+            explanation[key] = default_val
+
+    # Clamp confidence to 0-1
+    try:
+        explanation['confidence'] = max(0.0, min(1.0, float(explanation['confidence'])))
+    except (TypeError, ValueError):
+        explanation['confidence'] = 0.5
+
+    return explanation
 
 
-def _generate_fallback_explanation(file_path: str, content: str, metadata: Dict[str, Any]) -> Dict[str, Any]:
-    """Generate basic explanation as fallback."""
+def _generate_fallback_explanation(
+    file_path: str,
+    content: str,
+    metadata: Dict[str, Any],
+    static_analysis: Dict[str, Any],
+    complexity_result: Dict[str, Any]
+) -> Dict[str, Any]:
+    """Generate deterministic fallback explanation when LLM fails."""
+    cx = complexity_result.get('metrics', {})
     return {
         'purpose': f"This {metadata['language']} file contains {metadata['functions']} functions across {metadata['lines']} lines.",
-        'key_functions': metadata['function_list'][:5],
-        'patterns': ['Standard' if metadata['language'] else 'Unknown'],
-        'dependencies': metadata['dependencies'],
+        'businessContext': '',
+        'executionFlow': [],
+        'keyFunctions': metadata['function_list'][:5],
+        'designPatterns': [],
+        'dependencies': metadata.get('dependencies', []),
         'complexity': {
-            'lines': metadata['lines'],
-            'functions': metadata['functions']
-        }
+            'score': complexity_result.get('score', 1),
+            'reasoning': f"Deterministic: {cx.get('function_count', 0)} functions, "
+                         f"{cx.get('nesting_estimate', 0)} deeply-nested lines, "
+                         f"{cx.get('try_catch_count', 0)} try/catch blocks"
+        },
+        'improvementSuggestions': [],
+        'securityRisks': [],
+        'impactAssessment': '',
+        'confidence': 0.0
     }
 
 
