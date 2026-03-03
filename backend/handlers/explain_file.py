@@ -155,13 +155,22 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
 
 def _get_cached_explanation(repo_id: str, file_path: str, level: str) -> Optional[Dict[str, Any]]:
-    """Retrieve cached explanation from DynamoDB."""
+    """Retrieve cached explanation from DynamoDB.
+    
+    Key schema:
+        Partition key (repo_id): Repository ID
+        Sort key (sort_key):     file_path#level
+    """
     try:
-        cache_key = f"{repo_id}#{file_path}#{level}"
-        response = cache_table.get_item(Key={'cache_key': cache_key})
+        sort_key = f"{file_path}#{level}"
+        response = cache_table.get_item(Key={
+            'repo_id': repo_id,
+            'sort_key': sort_key
+        })
         
         if 'Item' in response:
             item = response['Item']
+            # Check TTL — skip expired entries
             if 'ttl' in item and item['ttl'] > int(datetime.utcnow().timestamp()):
                 return item.get('data')
         
@@ -172,14 +181,19 @@ def _get_cached_explanation(repo_id: str, file_path: str, level: str) -> Optiona
 
 
 def _cache_explanation(repo_id: str, file_path: str, level: str, data: Dict[str, Any]) -> None:
-    """Cache explanation result in DynamoDB."""
+    """Cache explanation result in DynamoDB.
+    
+    Key schema:
+        Partition key (repo_id): Repository ID
+        Sort key (sort_key):     file_path#level
+    """
     try:
-        cache_key = f"{repo_id}#{file_path}#{level}"
+        sort_key = f"{file_path}#{level}"
         ttl = int((datetime.utcnow() + timedelta(hours=CACHE_TTL_HOURS)).timestamp())
         
         cache_table.put_item(Item={
-            'cache_key': cache_key,
             'repo_id': repo_id,
+            'sort_key': sort_key,
             'file_path': file_path,
             'level': level,
             'data': data,
@@ -187,7 +201,7 @@ def _cache_explanation(repo_id: str, file_path: str, level: str, data: Dict[str,
             'created_at': datetime.utcnow().isoformat() + 'Z'
         })
         
-        print(f"Cached explanation for {cache_key}")
+        print(f"Cached explanation for repo={repo_id} key={sort_key}")
     except Exception as e:
         print(f"Cache storage error: {str(e)}")
 
