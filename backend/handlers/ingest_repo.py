@@ -370,6 +370,41 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         }
         print(f"Repo metrics: {json.dumps(repo_metrics, default=str)}")
         
+        # Step 5.6: Build hierarchical file tree
+        print("Building file tree...")
+        file_tree = {'name': 'root', 'type': 'directory', 'children': []}
+        
+        for file_info in files:
+            rel = os.path.relpath(file_info['path'], repo_path)
+            parts = rel.split(os.sep)
+            current = file_tree
+            
+            # Walk/create directory nodes for each segment except the last (the file)
+            for part in parts[:-1]:
+                # Find existing child directory
+                found = None
+                for child in current['children']:
+                    if child['type'] == 'directory' and child['name'] == part:
+                        found = child
+                        break
+                if found is None:
+                    found = {'name': part, 'type': 'directory', 'children': []}
+                    current['children'].append(found)
+                current = found
+            
+            # Add the file leaf node
+            current['children'].append({'name': parts[-1], 'type': 'file'})
+        
+        # Sort children alphabetically: directories first, then files
+        def _sort_tree(node):
+            if node.get('children'):
+                node['children'].sort(key=lambda c: (0 if c['type'] == 'directory' else 1, c['name'].lower()))
+                for child in node['children']:
+                    _sort_tree(child)
+        
+        _sort_tree(file_tree)
+        print(f"File tree built with {len(files)} entries")
+        
         # Step 6: Generate architecture summary
         print("Generating architecture summary...")
         tech_stack = processor.detect_tech_stack(files)
@@ -415,7 +450,9 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'path': largest_file_path,
                     'lines': largest_file_lines
                 },
-                'indexed_at': indexed_at
+                'indexed_at': indexed_at,
+                # Precomputed file tree
+                'file_tree': file_tree
             })
             
             # Create initial session
@@ -529,7 +566,8 @@ def get_status_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'primary_language': item.get('primary_language', ''),
                     'folder_depth': item.get('folder_depth', 0),
                     'largest_file': item.get('largest_file', {}),
-                    'indexed_at': item.get('indexed_at', '')
+                    'indexed_at': item.get('indexed_at', ''),
+                    'file_tree': item.get('file_tree', {})
                 }, cls=_DecimalEncoder)
             }
             
