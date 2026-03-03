@@ -99,33 +99,23 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print("Retrieving file chunks from vector store...")
         file_summaries = _get_file_summaries(repo_id)
         
-        # Step 4: Build context for architecture analysis
+        # Step 4: Build context for architecture analysis (inject repo metrics + folder structure)
         context = _build_architecture_context(repo_metadata, file_summaries, level)
         
-        # Step 5: Generate architecture analysis with Bedrock
+        # Step 5: Generate architecture analysis with Bedrock (includes mermaid diagram)
         print("Generating architecture analysis with Bedrock...")
         try:
             architecture_json = _generate_architecture_analysis(context, level)
         except Exception as e:
             print(f"Failed to generate architecture analysis: {str(e)}")
-            # Fallback to basic structure analysis
             architecture_json = _generate_fallback_architecture(repo_metadata, file_summaries)
         
-        # Step 6: Generate Mermaid diagram
-        print("Generating Mermaid diagram...")
-        try:
-            diagram = _generate_mermaid_diagram(architecture_json)
-        except Exception as e:
-            print(f"Failed to generate Mermaid diagram: {str(e)}")
-            # Fallback to basic diagram
-            diagram = _generate_fallback_diagram(repo_metadata)
-        
-        # Step 7: Build response
+        # Step 6: Build response
         timestamp = datetime.utcnow().isoformat() + 'Z'
         result = {
             'repo_id': repo_id,
             'architecture': architecture_json,
-            'diagram': diagram,
+            'diagram': architecture_json.get('mermaidDiagram', _generate_fallback_diagram(repo_metadata)),
             'generated_at': timestamp
         }
         
@@ -261,22 +251,48 @@ def _build_architecture_context(
     tech_stack = repo_metadata.get('tech_stack', {})
     file_count = repo_metadata.get('file_count', 0)
     
-    # Build file list
-    file_list = "\n".join([
-        f"- {f['file_path']}: {f['content_preview'][:200]}..."
-        for f in file_summaries[:30]  # Limit to 30 files
+    # Repo summary metrics (stored during ingestion)
+    total_lines = repo_metadata.get('total_lines_of_code', 0)
+    lang_breakdown = repo_metadata.get('language_breakdown', {})
+    primary_lang = repo_metadata.get('primary_language', 'unknown')
+    folder_depth = repo_metadata.get('folder_depth', 0)
+    largest_file = repo_metadata.get('largest_file', {})
+    
+    # Folder structure (from precomputed file_tree or file_paths)
+    file_tree = repo_metadata.get('file_tree', {})
+    if file_tree:
+        folder_structure = json.dumps(file_tree, indent=2)[:2000]
+    else:
+        file_paths = repo_metadata.get('file_paths', [])
+        folder_structure = '\n'.join([f"  {p}" for p in file_paths[:40]])
+    
+    # File previews
+    file_list = '\n'.join([
+        f"- {f['file_path']}: {f['content_preview'][:150]}..."
+        for f in file_summaries[:25]
     ])
     
-    context = f"""Repository Analysis Request
-
-Level: {level}
+    # Language breakdown formatted
+    lang_str = ', '.join([f"{ext}: {cnt} files" for ext, cnt in sorted(
+        lang_breakdown.items(), key=lambda x: x[1], reverse=True
+    )[:8]]) if lang_breakdown else 'unknown'
+    
+    context = f"""=== REPOSITORY METRICS ===
 Total Files: {file_count}
+Total Lines of Code: {total_lines}
+Primary Language: {primary_lang}
+Language Breakdown: {lang_str}
+Max Folder Depth: {folder_depth}
+Largest File: {largest_file.get('path', 'N/A')} ({largest_file.get('lines', 0)} lines)
 Tech Stack: {json.dumps(tech_stack, indent=2)}
 
-Key Files and Content Previews:
+=== FOLDER STRUCTURE ===
+{folder_structure}
+
+=== FILE PREVIEWS (top {min(len(file_summaries), 25)}) ===
 {file_list}
 
-Please analyze this repository and provide a structured architecture summary."""
+Analysis Level: {level}"""
     
     return context
 
@@ -294,183 +310,167 @@ def _generate_architecture_analysis(context: str, level: str) -> Dict[str, Any]:
     """
     # Adjust system prompt based on level
     if level == 'basic':
-        system_prompt = bedrock_client.ARCHITECTURE_SYSTEM_PROMPT + "\n\nProvide a high-level overview suitable for beginners. Focus on main components and simple relationships."
+        level_hint = 'Provide a high-level overview suitable for beginners. Focus on main components and simple relationships.'
     elif level == 'advanced':
-        system_prompt = bedrock_client.ARCHITECTURE_SYSTEM_PROMPT + "\n\nProvide an in-depth analysis including design patterns, architectural trade-offs, scalability considerations, and technical debt."
+        level_hint = 'Provide an in-depth analysis including design patterns, architectural trade-offs, scalability considerations, and technical debt.'
     else:
-        system_prompt = bedrock_client.ARCHITECTURE_SYSTEM_PROMPT
+        level_hint = 'Provide a balanced analysis covering components, patterns, and data flow.'
+    
+    system_prompt = bedrock_client.ARCHITECTURE_SYSTEM_PROMPT + f"\n\n{level_hint}"
     
     prompt = f"""{context}
 
-Return a JSON object with this exact structure:
+You are a senior software architect. Analyze the repository above and respond with ONLY a valid JSON object matching this EXACT schema (no markdown, no commentary):
+
 {{
-    "overview": "Brief description of the architecture",
-    "components": [
-        {{
-            "name": "Component name",
-            "description": "What this component does",
-            "files": ["file1.py", "file2.js"]
-        }}
-    ],
-    "patterns": ["Pattern1", "Pattern2"],
-    "data_flow": "Description of how data flows through the system",
-    "entry_points": ["main.py", "index.js"]
+  "overview": "2-3 sentence high-level summary of what this codebase does",
+  "architectureStyle": "e.g. Monolithic MVC, Microservices, Serverless, Layered, etc.",
+  "components": [
+    {{
+      "name": "Component Name",
+      "description": "What this component does",
+      "files": ["file1.py", "file2.js"],
+      "role": "e.g. API Layer, Data Access, Business Logic"
+    }}
+  ],
+  "dataFlowSteps": [
+    "Step 1: User sends request to API Gateway",
+    "Step 2: Lambda handler validates input"
+  ],
+  "mermaidDiagram": "flowchart TD\n    A[Client] --> B[API]\n    B --> C[Service]\n    C --> D[(Database)]",
+  "confidence": 0.85
 }}
 
-Respond with ONLY valid JSON, no markdown formatting."""
+IMPORTANT:
+- The mermaidDiagram must be valid Mermaid flowchart TD syntax on a single JSON string (use \n for newlines).
+- confidence is 0.0-1.0 reflecting how confident you are in this analysis.
+- Respond with ONLY the JSON object."""
     
     response = bedrock_client.invoke_claude(
         prompt=prompt,
         system_prompt=system_prompt,
         max_tokens=3000,
-        temperature=0.3
+        temperature=0.2
     )
     
-    # Parse JSON from response
+    return _parse_and_validate_architecture(response, repo_metadata_hint=None)
+
+
+def _parse_and_validate_architecture(
+    response: str,
+    repo_metadata_hint: Optional[Dict[str, Any]] = None
+) -> Dict[str, Any]:
+    """Parse LLM response as JSON, validate required fields, handle malformation."""
+    json_str = response.strip()
+    if '```json' in json_str:
+        start = json_str.find('```json') + 7
+        end = json_str.find('```', start)
+        json_str = json_str[start:end].strip()
+    elif '```' in json_str:
+        start = json_str.find('```') + 3
+        end = json_str.find('```', start)
+        json_str = json_str[start:end].strip()
+    
     try:
-        # Try to extract JSON if wrapped in markdown
-        if '```json' in response:
-            start = response.find('```json') + 7
-            end = response.find('```', start)
-            json_str = response[start:end].strip()
-        elif '```' in response:
-            start = response.find('```') + 3
-            end = response.find('```', start)
-            json_str = response[start:end].strip()
-        else:
-            json_str = response.strip()
-        
-        architecture_json = json.loads(json_str)
-        
-        # Validate structure
-        required_keys = ['overview', 'components', 'patterns', 'data_flow', 'entry_points']
-        for key in required_keys:
-            if key not in architecture_json:
-                raise ValueError(f"Missing required key: {key}")
-        
-        return architecture_json
-        
+        arch = json.loads(json_str)
     except (json.JSONDecodeError, ValueError) as e:
         print(f"Failed to parse architecture JSON: {str(e)}")
-        print(f"Response was: {response[:500]}")
-        raise
+        print(f"Raw response (first 500 chars): {response[:500]}")
+        # Attempt brace extraction
+        brace_start = json_str.find('{')
+        brace_end = json_str.rfind('}')
+        if brace_start != -1 and brace_end > brace_start:
+            try:
+                arch = json.loads(json_str[brace_start:brace_end + 1])
+            except (json.JSONDecodeError, ValueError):
+                raise
+        else:
+            raise
+    
+    # Schema enforcement — fill missing fields
+    defaults = {
+        'overview': 'Architecture overview unavailable.',
+        'architectureStyle': 'Unknown',
+        'components': [],
+        'dataFlowSteps': [],
+        'mermaidDiagram': 'flowchart TD\n    A[Application] --> B[Components]\n    B --> C[(Data)]',
+        'confidence': 0.5
+    }
+    for key, default_val in defaults.items():
+        if key not in arch:
+            arch[key] = default_val
+    
+    # Clamp confidence
+    try:
+        arch['confidence'] = max(0.0, min(1.0, float(arch['confidence'])))
+    except (TypeError, ValueError):
+        arch['confidence'] = 0.5
+    
+    # Validate mermaid starts correctly
+    diagram = arch.get('mermaidDiagram', '')
+    if diagram and not diagram.strip().startswith('flowchart') and not diagram.strip().startswith('graph'):
+        arch['mermaidDiagram'] = 'flowchart TD\n' + diagram
+    
+    return arch
 
 
 def _generate_fallback_architecture(
     repo_metadata: Dict[str, Any],
     file_summaries: List[Dict[str, Any]]
 ) -> Dict[str, Any]:
-    """
-    Generate basic architecture structure as fallback.
-    
-    Args:
-        repo_metadata: Repository metadata
-        file_summaries: List of file summaries
-        
-    Returns:
-        Basic architecture JSON structure
-    """
+    """Generate deterministic fallback architecture when LLM fails."""
     tech_stack = repo_metadata.get('tech_stack', {})
     languages = tech_stack.get('languages', [])
     frameworks = tech_stack.get('frameworks', [])
+    primary_lang = repo_metadata.get('primary_language', 'unknown')
+    total_lines = repo_metadata.get('total_lines_of_code', 0)
     
-    # Identify entry points from file names
-    entry_points = []
+    # Identify entry points
+    entry_files = []
     for f in file_summaries:
         path = f['file_path']
-        if any(name in path.lower() for name in ['main', 'app', 'index', 'server']):
-            entry_points.append(path)
+        if any(name in path.lower() for name in ['main', 'app', 'index', 'server', 'handler', 'lambda']):
+            entry_files.append(path)
     
     return {
-        'overview': f"This repository uses {', '.join(languages)} with {', '.join(frameworks) if frameworks else 'standard libraries'}. Architecture analysis unavailable.",
+        'overview': f"Repository with {repo_metadata.get('file_count', 0)} files, "
+                    f"{total_lines} lines of code. "
+                    f"Primary language: {primary_lang}. "
+                    f"Uses {', '.join(frameworks) if frameworks else 'standard libraries'}.",
+        'architectureStyle': 'Unknown (LLM analysis unavailable)',
         'components': [
             {
                 'name': 'Core Application',
                 'description': 'Main application logic',
-                'files': [f['file_path'] for f in file_summaries[:5]]
+                'files': [f['file_path'] for f in file_summaries[:5]],
+                'role': 'Application'
             }
         ],
-        'patterns': ['Standard' if not frameworks else frameworks[0]],
-        'data_flow': 'Data flow analysis unavailable. Please review the codebase manually.',
-        'entry_points': entry_points[:5] if entry_points else ['Unknown']
+        'dataFlowSteps': ['Data flow analysis unavailable. Please review the codebase manually.'],
+        'mermaidDiagram': _generate_fallback_diagram(repo_metadata),
+        'confidence': 0.0
     }
 
 
-def _generate_mermaid_diagram(architecture_json: Dict[str, Any]) -> str:
-    """
-    Generate Mermaid diagram from architecture JSON.
-    
-    Args:
-        architecture_json: Architecture structure
-        
-    Returns:
-        Mermaid diagram code
-    """
-    prompt = f"""Based on this architecture analysis, generate a Mermaid.js flowchart diagram:
-
-{json.dumps(architecture_json, indent=2)}
-
-Requirements:
-1. Use flowchart TD (top-down) syntax
-2. Show major components as nodes
-3. Show relationships and data flow as edges
-4. Keep it clear and readable
-5. Use appropriate node shapes (rectangles for components, cylinders for databases, etc.)
-
-Return ONLY the Mermaid code, starting with 'flowchart TD' and no markdown formatting."""
-    
-    response = bedrock_client.invoke_claude(
-        prompt=prompt,
-        max_tokens=1024,
-        temperature=0.3
-    )
-    
-    # Extract mermaid code
-    if '```mermaid' in response:
-        start = response.find('```mermaid') + 10
-        end = response.find('```', start)
-        diagram = response[start:end].strip()
-    elif '```' in response:
-        start = response.find('```') + 3
-        end = response.find('```', start)
-        diagram = response[start:end].strip()
-    else:
-        diagram = response.strip()
-    
-    # Ensure it starts with flowchart
-    if not diagram.startswith('flowchart') and not diagram.startswith('graph'):
-        diagram = 'flowchart TD\n' + diagram
-    
-    return diagram
-
-
 def _generate_fallback_diagram(repo_metadata: Dict[str, Any]) -> str:
-    """
-    Generate basic Mermaid diagram as fallback.
-    
-    Args:
-        repo_metadata: Repository metadata
-        
-    Returns:
-        Basic Mermaid diagram code
-    """
+    """Generate basic Mermaid diagram as fallback."""
     tech_stack = repo_metadata.get('tech_stack', {})
     languages = tech_stack.get('languages', [])
     frameworks = tech_stack.get('frameworks', [])
     
-    diagram = "flowchart TD\n"
-    diagram += "    A[Application Entry Point]\n"
+    diagram = 'flowchart TD\n'
+    diagram += '    A[Application Entry Point]\n'
     
     if languages:
         for i, lang in enumerate(languages[:3]):
-            diagram += f"    A --> B{i}[{lang} Components]\n"
+            diagram += f'    A --> B{i}[{lang} Components]\n'
     
     if frameworks:
         for i, fw in enumerate(frameworks[:3]):
-            diagram += f"    A --> C{i}[{fw} Layer]\n"
+            diagram += f'    A --> C{i}[{fw} Layer]\n'
     
-    diagram += "    A --> D[Data Layer]\n"
-    diagram += "    D --> E[(Storage)]\n"
+    diagram += '    A --> D[Data Layer]\n'
+    diagram += '    D --> E[(Storage)]\n'
     
     return diagram
 
