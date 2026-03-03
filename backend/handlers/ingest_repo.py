@@ -320,6 +320,56 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         print(f"Stored {stored_count} chunks in vector store")
         
+        # Step 5.5: Compute repo-level summary metrics
+        print("Computing repo summary metrics...")
+        total_lines = 0
+        language_breakdown = {}
+        largest_file_path = ''
+        largest_file_lines = 0
+        max_depth = 0
+        
+        for file_info in files:
+            fpath = file_info['path']
+            rel = os.path.relpath(fpath, repo_path)
+            
+            # Folder depth
+            depth = rel.count(os.sep)
+            if depth > max_depth:
+                max_depth = depth
+            
+            # Language breakdown by extension
+            _, ext = os.path.splitext(fpath)
+            ext = ext.lower() if ext else 'no_ext'
+            language_breakdown[ext] = language_breakdown.get(ext, 0) + 1
+            
+            # Line count
+            try:
+                with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                    line_count = sum(1 for _ in f)
+                total_lines += line_count
+                if line_count > largest_file_lines:
+                    largest_file_lines = line_count
+                    largest_file_path = rel
+            except Exception:
+                pass
+        
+        primary_language = max(language_breakdown, key=language_breakdown.get) if language_breakdown else 'unknown'
+        indexed_at = datetime.utcnow().isoformat() + 'Z'
+        
+        repo_metrics = {
+            'total_files': len(files),
+            'total_lines_of_code': total_lines,
+            'language_breakdown': language_breakdown,
+            'primary_language': primary_language,
+            'folder_depth': max_depth,
+            'largest_file': {
+                'path': largest_file_path,
+                'lines': largest_file_lines
+            },
+            'indexed_at': indexed_at
+        }
+        print(f"Repo metrics: {json.dumps(repo_metrics, default=str)}")
+        
         # Step 6: Generate architecture summary
         print("Generating architecture summary...")
         tech_stack = processor.detect_tech_stack(files)
@@ -355,7 +405,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 'file_paths': [os.path.relpath(f['path'], repo_path) for f in files],
                 'status': 'completed',
                 'created_at': timestamp,
-                'updated_at': timestamp
+                'updated_at': timestamp,
+                # Repo summary metrics
+                'total_lines_of_code': total_lines,
+                'language_breakdown': language_breakdown,
+                'primary_language': primary_language,
+                'folder_depth': max_depth,
+                'largest_file': {
+                    'path': largest_file_path,
+                    'lines': largest_file_lines
+                },
+                'indexed_at': indexed_at
             })
             
             # Create initial session
@@ -462,7 +522,14 @@ def get_status_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     'file_paths': item.get('file_paths', []),
                     'source': item.get('source', ''),
                     'created_at': item.get('created_at', ''),
-                    'updated_at': item.get('updated_at', '')
+                    'updated_at': item.get('updated_at', ''),
+                    # Repo summary metrics
+                    'total_lines_of_code': item.get('total_lines_of_code', 0),
+                    'language_breakdown': item.get('language_breakdown', {}),
+                    'primary_language': item.get('primary_language', ''),
+                    'folder_depth': item.get('folder_depth', 0),
+                    'largest_file': item.get('largest_file', {}),
+                    'indexed_at': item.get('indexed_at', '')
                 }, cls=_DecimalEncoder)
             }
             
