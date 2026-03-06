@@ -1,4 +1,4 @@
-# 🚀 BloomWay AI
+# BloomWay AI
 
 > AI-powered codebase understanding tool that transforms how developers and students explore unfamiliar code
 
@@ -11,24 +11,24 @@
 
 ---
 
-## 📖 Overview
+## Overview
 
 BloomWay AI is an intelligent codebase analysis platform that leverages Amazon Bedrock foundation models to help developers and students understand unfamiliar code repositories in minutes instead of hours. Built on AWS serverless architecture, it provides instant architecture insights, AI-generated documentation, and interactive Q&A capabilities.
 
-### ✨ Key Features
+### Key Features
 
-- 🤖 **AI-Powered Analysis** - Uses Amazon Bedrock (Claude) for semantic code understanding
-- 🏗️ **Architecture Visualization** - Auto-generated Mermaid diagrams showing system structure
-- 💬 **Interactive Q&A** - RAG-based chat interface for codebase questions
-- 📚 **Documentation Generation** - Automatic README, API docs, and getting-started guides
-- 🔍 **Technology Detection** - Identifies frameworks, libraries, and architectural patterns
-- ⚡ **Async Processing** - SQS-based job queue for handling large repositories
-- 📊 **Confidence Scoring** - AI-powered confidence metrics for analysis results
-- 🎯 **Multi-Language Support** - Python, JavaScript, TypeScript, Java, Go
+- **AI-Powered Analysis** - Uses Amazon Bedrock (Claude) for semantic code understanding
+- **Architecture Visualization** - Auto-generated Mermaid diagrams showing system structure
+- **Interactive Q&A** - RAG-based chat interface for codebase questions
+- **Documentation Generation** - Automatic README, API docs, and getting-started guides
+- **Technology Detection** - Identifies frameworks, libraries, and architectural patterns
+- **Async Processing** - SQS-based job queue for handling large repositories
+- **Confidence Scoring** - AI-powered confidence metrics for analysis results
+- **Multi-Language Support** - Python, JavaScript, TypeScript, Java, Go
 
 ---
 
-## 🎯 Use Cases
+## Use Cases
 
 | User Type | Use Case |
 |-----------|----------|
@@ -39,7 +39,7 @@ BloomWay AI is an intelligent codebase analysis platform that leverages Amazon B
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────┐
@@ -90,7 +90,7 @@ BloomWay AI is an intelligent codebase analysis platform that leverages Amazon B
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -143,7 +143,7 @@ Open http://localhost:5173
 
 ---
 
-## 📚 Documentation
+## Documentation
 
 | Document | Description |
 |----------|-------------|
@@ -154,7 +154,7 @@ Open http://localhost:5173
 
 ---
 
-## 🎮 Usage
+## Usage
 
 ### Analyze a Repository
 
@@ -186,7 +186,7 @@ Open http://localhost:5173
 
 ---
 
-## 🔧 Configuration
+## Configuration
 
 ### Environment Variables
 
@@ -204,7 +204,7 @@ VITE_API_BASE_URL=https://your-api-gateway-url.amazonaws.com/Prod/
 
 ---
 
-## 🧪 Testing
+## Testing
 
 ### Backend Tests
 
@@ -233,7 +233,7 @@ cd backend/tests
 
 ---
 
-## 📊 Features in Detail
+## Features in Detail
 
 ### 1. Architecture Analysis
 
@@ -265,7 +265,7 @@ cd backend/tests
 
 ---
 
-## 💰 Cost Estimate
+## Cost Estimate
 
 Based on moderate usage (100 repos/day):
 
@@ -282,7 +282,7 @@ Based on moderate usage (100 repos/day):
 
 ---
 
-## 🛠️ Development
+## Development
 
 ### Project Structure
 
@@ -318,7 +318,7 @@ BloomWay-Ai/
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 Contributions are welcome! Please follow these steps:
 
@@ -337,22 +337,13 @@ Contributions are welcome! Please follow these steps:
 
 ---
 
-## 📝 License
+## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ---
 
-## 🙏 Acknowledgments
-
-- **Amazon Bedrock** - Foundation model access
-- **AWS Serverless** - Infrastructure platform
-- **Claude 3.5 Sonnet** - AI-powered analysis
-- **React Community** - Frontend framework
-
----
-
-## 📧 Contact
+## Contact
 
 **Project Maintainer:** Harsh Amarnani
 
@@ -362,37 +353,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ---
 
-## 🗺️ Roadmap
-
-### Q2 2026
-- [ ] VS Code Extension
-- [ ] Support for Rust, C++, Ruby
-- [ ] Team collaboration features
-- [ ] Custom domain support
-
-### Q3 2026
-- [ ] Real-time collaboration
-- [ ] Code generation capabilities
-- [ ] CI/CD integration
-- [ ] Enterprise features
-
-### Q4 2026
-- [ ] Offline mode with local LLM
-- [ ] Multi-language UI support
-- [ ] Advanced analytics dashboard
-- [ ] API access for integrations
-
----
-
-## ⭐ Star History
-
-If you find this project useful, please consider giving it a star!
-
----
-
 <div align="center">
 
-**Built with ❤️ using AWS and Amazon Bedrock**
+**Built with love using AWS and Amazon Bedrock**
 
 [Report Bug](https://github.com/HARSH160804/BloomWay-Ai/issues) · [Request Feature](https://github.com/HARSH160804/BloomWay-Ai/issues) · [Documentation](design.md)
 
