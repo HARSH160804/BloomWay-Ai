@@ -15,6 +15,8 @@ Globals:
         CODE_BUCKET: !Ref CodeArtifactsBucket
         CACHE_TABLE: !Ref CacheTable
         DOCS_TABLE: !Ref RepoDocumentationTable
+        INGESTION_JOBS_TABLE: !Ref IngestionJobsTable
+        PROCESSING_QUEUE_URL: !Ref ProcessingQueue
         BEDROCK_REGION: !Ref AWS::Region
   Api:
     Cors:
@@ -37,7 +39,8 @@ Resources:
         AllowOrigin: "'*'"
 
   # Lambda Functions
-  IngestRepoFunction:
+  # Legacy Synchronous Ingestion (kept for rollback)
+  IngestRepoFunctionLegacy:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../backend/
@@ -65,13 +68,7 @@ Resources:
                 - logs:CreateLogStream
                 - logs:PutLogEvents
               Resource: '*'
-      Events:
-        IngestRepo:
-          Type: Api
-          Properties:
-            RestApiId: !Ref BloomWayApi
-            Path: /repos/ingest
-            Method: POST
+      # Events removed - async endpoint takes over /repos/ingest
 
   GetRepoStatusFunction:
     Type: AWS::Serverless::Function
@@ -370,6 +367,121 @@ Resources:
             Path: /repos/{id}/docs/status
             Method: GET
 
+  # Async Ingestion Functions
+  IngestAsyncFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.ingest_async.lambda_handler
+      MemorySize: 512
+      Timeout: 30
+      Environment:
+        Variables:
+          INGESTION_JOBS_TABLE: !Ref IngestionJobsTable
+          PROCESSING_QUEUE_URL: !Ref ProcessingQueue
+          REPOSITORIES_TABLE: !Ref RepositoriesTable
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IngestionJobsTable
+        - SQSSendMessagePolicy:
+            QueueName: !GetAtt ProcessingQueue.QueueName
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepositoriesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        IngestAsync:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/ingest
+            Method: POST
+
+  ProcessRepoWorkerFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.process_repo_worker.lambda_handler
+      MemorySize: 3008
+      Timeout: 900
+      Environment:
+        Variables:
+          INGESTION_JOBS_TABLE: !Ref IngestionJobsTable
+          REPOSITORIES_TABLE: !Ref RepositoriesTable
+          EMBEDDINGS_TABLE: !Ref EmbeddingsTable
+          SESSIONS_TABLE: !Ref SessionsTable
+          CODE_BUCKET: !Ref CodeArtifactsBucket
+          BEDROCK_REGION: !Ref AWS::Region
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref IngestionJobsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RepositoriesTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref EmbeddingsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref SessionsTable
+        - S3CrudPolicy:
+            BucketName: !Ref CodeArtifactsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - bedrock:InvokeModel
+                - bedrock:InvokeModelWithResponseStream
+              Resource: '*'
+            - Effect: Allow
+              Action:
+                - sqs:DeleteMessage
+                - sqs:GetQueueAttributes
+                - sqs:ReceiveMessage
+              Resource: !GetAtt ProcessingQueue.Arn
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        ProcessingQueue:
+          Type: SQS
+          Properties:
+            Queue: !GetAtt ProcessingQueue.Arn
+            BatchSize: 1
+            MaximumBatchingWindowInSeconds: 0
+
+  GetIngestionStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.ingest_async.get_status_handler
+      MemorySize: 256
+      Timeout: 10
+      Environment:
+        Variables:
+          INGESTION_JOBS_TABLE: !Ref IngestionJobsTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref IngestionJobsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        GetStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /ingestion/status/{job_id}
+            Method: GET
+
   # DynamoDB Tables
   SessionsTable:
     Type: AWS::DynamoDB::Table
@@ -462,6 +574,94 @@ Resources:
         - Key: Application
           Value: BloomWay-AI
 
+  IngestionJobsTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: BloomWay-IngestionJobs
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: job_id
+          AttributeType: S
+        - AttributeName: idempotency_key
+          AttributeType: S
+      KeySchema:
+        - AttributeName: job_id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: idempotency-index
+          KeySchema:
+            - AttributeName: idempotency_key
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      TimeToLiveSpecification:
+        AttributeName: ttl
+        Enabled: true
+      StreamSpecification:
+        StreamViewType: NEW_AND_OLD_IMAGES
+      Tags:
+        - Key: Application
+          Value: BloomWay-AI
+
+  # SQS Queues for Async Processing
+  ProcessingQueue:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: BloomWay-RepositoryProcessing
+      VisibilityTimeout: 900
+      MessageRetentionPeriod: 345600
+      ReceiveMessageWaitTimeSeconds: 20
+      RedrivePolicy:
+        deadLetterTargetArn: !GetAtt ProcessingDLQ.Arn
+        maxReceiveCount: 3
+      Tags:
+        - Key: Application
+          Value: BloomWay-AI
+
+  ProcessingDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: BloomWay-RepositoryProcessing-DLQ
+      MessageRetentionPeriod: 1209600
+      Tags:
+        - Key: Application
+          Value: BloomWay-AI
+
+  # CloudWatch Alarms for Async Ingestion
+  ProcessingErrorAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: BloomWay-ProcessingWorker-HighErrorRate
+      AlarmDescription: Alert when processing worker error rate exceeds 10%
+      MetricName: Errors
+      Namespace: AWS/Lambda
+      Statistic: Sum
+      Period: 300
+      EvaluationPeriods: 2
+      Threshold: 10
+      ComparisonOperator: GreaterThanThreshold
+      Dimensions:
+        - Name: FunctionName
+          Value: !Ref ProcessRepoWorkerFunction
+      TreatMissingData: notBreaching
+
+  DLQMessagesAlarm:
+    Type: AWS::CloudWatch::Alarm
+    Properties:
+      AlarmName: BloomWay-ProcessingDLQ-MessagesPresent
+      AlarmDescription: Alert when messages appear in DLQ
+      MetricName: ApproximateNumberOfMessagesVisible
+      Namespace: AWS/SQS
+      Statistic: Sum
+      Period: 60
+      EvaluationPeriods: 1
+      Threshold: 1
+      ComparisonOperator: GreaterThanOrEqualToThreshold
+      Dimensions:
+        - Name: QueueName
+          Value: !GetAtt ProcessingDLQ.QueueName
+      TreatMissingData: notBreaching
+
   # S3 Bucket
   CodeArtifactsBucket:
     Type: AWS::S3::Bucket
@@ -547,3 +747,21 @@ Outputs:
     Value: !Ref RepoDocumentationTable
     Export:
       Name: BloomWayRepoDocumentationTable
+
+  IngestionJobsTableName:
+    Description: DynamoDB IngestionJobs table name
+    Value: !Ref IngestionJobsTable
+    Export:
+      Name: BloomWayIngestionJobsTable
+
+  ProcessingQueueUrl:
+    Description: SQS Processing Queue URL
+    Value: !Ref ProcessingQueue
+    Export:
+      Name: BloomWayProcessingQueueUrl
+
+  ProcessingDLQUrl:
+    Description: SQS Processing Dead Letter Queue URL
+    Value: !Ref ProcessingDLQ
+    Export:
+      Name: BloomWayProcessingDLQUrl

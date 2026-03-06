@@ -82,6 +82,15 @@ export interface IngestResponse {
   }
 }
 
+export interface AsyncIngestResponse {
+  job_id: string
+  status: 'processing'
+  source: string
+  source_type: string
+  created_at: string
+  message: string
+}
+
 export interface RepoStatusResponse {
   repo_id: string
   status: 'completed' | 'processing' | 'failed'
@@ -440,6 +449,41 @@ export const ingestRepository = (data: IngestRequest): Promise<AxiosResponse<Ing
   throw new Error('Invalid source_type')
 }
 
+export const ingestRepositoryAsync = (data: IngestRequest): Promise<AxiosResponse<AsyncIngestResponse>> => {
+  console.log('ingestRepositoryAsync called with:', { source_type: data.source_type, has_file: !!data.file })
+
+  if (data.source_type === 'zip' && data.file) {
+    const formData = new FormData()
+    formData.append('source_type', 'zip')
+    formData.append('file', data.file)
+    if (data.auth_token) {
+      formData.append('auth_token', data.auth_token)
+    }
+
+    console.log('Making async ZIP upload request to:', `${API_BASE_URL}/repos/ingest`)
+
+    return axios.post(`${API_BASE_URL}/repos/ingest`, formData, {
+      timeout: 10000, // Async endpoint should respond quickly
+      headers: {
+        // Let browser set Content-Type with boundary for multipart/form-data
+      },
+    })
+  }
+
+  if (data.source_type === 'github') {
+    console.log('Making async GitHub URL request')
+    return apiClient.post('/repos/ingest', {
+      source_type: 'github',
+      source: data.source,
+      auth_token: data.auth_token,
+    }, {
+      timeout: 10000 // Async endpoint should respond quickly
+    })
+  }
+
+  throw new Error('Invalid source_type')
+}
+
 export const getRepoStatus = (
   repositoryId: string
 ): Promise<AxiosResponse<RepoStatusResponse>> =>
@@ -507,6 +551,7 @@ export const getDocumentationExportUrl = (
 // Legacy api object for backward compatibility
 export const api = {
   ingestRepository,
+  ingestRepositoryAsync,
   getRepoStatus,
   getFileContent,
   getRepoMetadata,

@@ -5,7 +5,6 @@
  * Shows loading state and changes label based on whether docs exist.
  */
 
-import React from 'react'
 import { Loader2, FileText } from 'lucide-react'
 
 interface GenerateButtonProps {

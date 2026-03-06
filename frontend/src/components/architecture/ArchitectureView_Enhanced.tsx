@@ -275,7 +275,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                 )}
                 
                 {/* Generate/Regenerate Button - shown when NOT generating */}
-                {docStatus === 'not_generated' && !isGenerating && docStatus !== 'generating' && (
+                {docStatus === 'not_generated' && !isGenerating && (
                   <GenerateButton
                     status={docStatus}
                     isGenerating={isGenerating}

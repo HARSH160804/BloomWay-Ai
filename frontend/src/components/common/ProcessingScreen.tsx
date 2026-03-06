@@ -26,7 +26,7 @@ export function ProcessingScreen() {
   return (
     <div
       className="fixed inset-0 flex items-center justify-center overflow-hidden"
-      style={{ backgroundColor: '#0a0c12' }}
+      style={{ backgroundColor: '#080b15' }}
     >
       {/* Subtle background glow */}
       <div
