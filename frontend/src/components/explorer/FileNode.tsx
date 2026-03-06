@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useLocation } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 
 interface FileItem {
@@ -12,11 +12,13 @@ interface FileItem {
 interface FileNodeProps {
   item: FileItem
   level: number
+  onFileSelect?: (filePath: string) => void
 }
 
-export function FileNode({ item, level }: FileNodeProps) {
+export function FileNode({ item, level, onFileSelect }: FileNodeProps) {
   const [isExpanded, setIsExpanded] = useState(level === 0)
   const navigate = useNavigate()
+  const location = useLocation()
   const { repoId } = useParams()
   const { setCurrentFile } = useApp()
 
@@ -38,7 +40,14 @@ export function FileNode({ item, level }: FileNodeProps) {
       setIsExpanded(!isExpanded)
     } else {
       setCurrentFile(item.path)
-      navigate(`/repo/${repoId}/file/${encodeURIComponent(item.path)}`)
+      
+      // If we're on the RepoExplorerPage and have onFileSelect callback, use it
+      // Otherwise, navigate to FileViewPage
+      if (onFileSelect && location.pathname === `/repo/${repoId}`) {
+        onFileSelect(item.path)
+      } else {
+        navigate(`/repo/${repoId}/file/${encodeURIComponent(item.path)}`)
+      }
     }
   }
 
@@ -68,7 +77,7 @@ export function FileNode({ item, level }: FileNodeProps) {
       {item.type === 'directory' && isExpanded && item.children && (
         <div>
           {item.children.map((child) => (
-            <FileNode key={child.path} item={child} level={level + 1} />
+            <FileNode key={child.path} item={child} level={level + 1} onFileSelect={onFileSelect} />
           ))}
         </div>
       )}

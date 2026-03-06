@@ -9,9 +9,9 @@ export default {
     extend: {
       colors: {
         dark: {
-          bg: '#0f172a',
-          surface: '#1e293b',
-          border: '#334155',
+          bg: '#0a0c12',
+          surface: '#0f1419',
+          border: '#2d3748',
         },
       },
     },

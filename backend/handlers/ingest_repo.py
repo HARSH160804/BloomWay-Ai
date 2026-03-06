@@ -298,9 +298,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Step 5: Store embeddings in vector store
         print("Storing embeddings in vector store...")
+        print(f"DEBUG: repo_id={repo_id}, type={type(repo_id)}")
         stored_count = 0
         
-        for chunk in chunks_with_embeddings:
+        for idx, chunk in enumerate(chunks_with_embeddings):
             try:
                 vector_store.add_chunk(
                     repo_id=chunk['repo_id'],
@@ -310,15 +311,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                     metadata=chunk.get('metadata', {})
                 )
                 stored_count += 1
+                
+                # Log first chunk for verification
+                if idx == 0:
+                    print(f"✓ First chunk stored - repo_id: {chunk['repo_id']}, file: {chunk['file_path']}")
+                    
             except ValueError as e:
                 # Max chunks limit reached
                 print(f"Warning: {str(e)}")
                 break
             except Exception as e:
-                print(f"Warning: Failed to store chunk: {str(e)}")
+                print(f"Warning: Failed to store chunk {idx}: {str(e)}")
                 continue
         
-        print(f"Stored {stored_count} chunks in vector store")
+        print(f"✓ Stored {stored_count} chunks in vector store for repo_id: {repo_id}")
         
         # Step 5.5: Compute repo-level summary metrics
         print("Computing repo summary metrics...")
@@ -407,7 +413,7 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         
         # Step 6: Detect tech stack
         print("Detecting tech stack...")
-        tech_stack = processor.detect_tech_stack(files)
+        tech_stack = processor.detect_tech_stack(files, repo_path=repo_path)
         
         # Step 6.5: Deep-scan manifest files for frameworks, databases, language
         print("Scanning manifest files...")

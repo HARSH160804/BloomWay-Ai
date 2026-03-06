@@ -160,11 +160,28 @@ class DynamoDBVectorStore:
         Returns:
             List of chunks sorted by similarity (highest first)
         """
+        print(f"[VectorStore] Searching for repo_id: {repo_id}")
+        print(f"[VectorStore] Query embedding length: {len(query_embedding)}")
+        
         # Fetch all chunks for this repo
         all_items = self._query_all_chunks(repo_id)
         
+        print(f"[VectorStore] Retrieved {len(all_items)} chunks from DynamoDB")
+        
         if not all_items:
+            print(f"[VectorStore] WARNING: No chunks found for repo_id: {repo_id}")
             return []
+        
+        # Log sample chunk for debugging
+        if all_items:
+            sample = all_items[0]
+            print(f"[VectorStore] Sample chunk - repo_id: {sample.get('repo_id')}, file_path: {sample.get('file_path')}")
+            if 'embedding' in sample:
+                try:
+                    sample_embedding = json.loads(sample['embedding'])
+                    print(f"[VectorStore] Sample embedding length: {len(sample_embedding)}")
+                except Exception as e:
+                    print(f"[VectorStore] ERROR parsing sample embedding: {str(e)}")
         
         # Normalize query embedding
         query_array = np.array(query_embedding, dtype=np.float32)
@@ -289,11 +306,16 @@ class DynamoDBVectorStore:
             List of all DynamoDB items for the repo
         """
         try:
+            print(f"[VectorStore] Querying DynamoDB table: {self.table_name}")
+            print(f"[VectorStore] Query condition: repo_id = {repo_id}")
+            
             items = []
             response = self.table.query(
                 KeyConditionExpression=Key('repo_id').eq(repo_id)
             )
             items.extend(response.get('Items', []))
+            
+            print(f"[VectorStore] First query returned {len(response.get('Items', []))} items")
             
             while 'LastEvaluatedKey' in response:
                 response = self.table.query(
@@ -301,11 +323,15 @@ class DynamoDBVectorStore:
                     ExclusiveStartKey=response['LastEvaluatedKey']
                 )
                 items.extend(response.get('Items', []))
+                print(f"[VectorStore] Pagination: fetched {len(response.get('Items', []))} more items")
             
+            print(f"[VectorStore] Total items retrieved: {len(items)}")
             return items
             
         except ClientError as e:
-            print(f"DynamoDB query error: {str(e)}")
+            print(f"[VectorStore] DynamoDB query error: {str(e)}")
+            print(f"[VectorStore] Error code: {e.response.get('Error', {}).get('Code', 'Unknown')}")
+            print(f"[VectorStore] Error message: {e.response.get('Error', {}).get('Message', 'Unknown')}")
             return []
     
     def _clean_for_dynamodb(self, obj: Any) -> Any:

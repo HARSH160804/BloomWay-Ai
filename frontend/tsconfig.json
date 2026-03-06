@@ -27,5 +27,6 @@
     }
   },
   "include": ["src"],
+  "exclude": ["**/*.deprecated.tsx", "**/*.deprecated.ts"],
   "references": [{ "path": "./tsconfig.node.json" }]
 }

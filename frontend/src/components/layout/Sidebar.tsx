@@ -3,9 +3,10 @@ import { FileTree } from '../explorer/FileTree'
 
 interface SidebarProps {
   repoId: string
+  onFileSelect?: (filePath: string) => void
 }
 
-export function Sidebar({ repoId }: SidebarProps) {
+export function Sidebar({ repoId, onFileSelect }: SidebarProps) {
   const [searchQuery, setSearchQuery] = useState('')
 
   return (
@@ -33,7 +34,7 @@ export function Sidebar({ repoId }: SidebarProps) {
 
       {/* File Tree */}
       <div className="flex-1 overflow-y-auto p-4">
-        <FileTree repoId={repoId} searchQuery={searchQuery} />
+        <FileTree repoId={repoId} searchQuery={searchQuery} onFileSelect={onFileSelect} />
       </div>
     </div>
   )

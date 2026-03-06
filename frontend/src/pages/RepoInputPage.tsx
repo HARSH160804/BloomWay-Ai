@@ -12,8 +12,8 @@ export function RepoInputPage() {
   const [zipFile, setZipFile] = useState<File | null>(null)
   const [sourceType, setSourceType] = useState<'github' | 'zip'>('github')
   const [error, setError] = useState<string | null>(null)
-  const [progress, setProgress] = useState(0)
   const [dragging, setDragging] = useState(false)
+  const [shake, setShake] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [navTooltip, setNavTooltip] = useState<{ key: string; msg: string } | null>(null)
 
@@ -45,19 +45,11 @@ export function RepoInputPage() {
       console.log('[handleAnalyze] validation failed')
       return
     }
-    console.log('[handleAnalyze] validation passed, starting upload')
+    console.log('[handleAnalyze] validation passed, starting ingestion')
 
     setStatus('uploading')
-    setProgress(10)
-
-    let progressInterval: ReturnType<typeof setInterval> | null = null
 
     try {
-      progressInterval = setInterval(() => {
-        setProgress((prev) => Math.min(prev + 10, 90))
-      }, 1000)
-
-      setStatus('processing')
       console.log('[handleAnalyze] calling ingestRepository...')
 
       let result
@@ -68,16 +60,16 @@ export function RepoInputPage() {
       }
 
       console.log('[handleAnalyze] ingestRepository success:', result.data.repo_id)
-      if (progressInterval) clearInterval(progressInterval)
-      setProgress(100)
-      setStatus('ready')
-      setRepoId(result.data.repo_id)
+      
+      // Extract repo_id and immediately navigate
+      const repoIdFromResponse = result.data.repo_id
+      setRepoId(repoIdFromResponse)
       setCurrentRepo(result.data)
 
-      setTimeout(() => navigate(`/repo/${result.data.repo_id}`), 500)
+      // Navigate immediately - let dashboard handle indexing status
+      navigate(`/repo/${repoIdFromResponse}`)
     } catch (err: any) {
       console.error('[handleAnalyze] error:', err)
-      if (progressInterval) clearInterval(progressInterval)
       setStatus('error')
 
       let errorMessage = 'Failed to ingest repository'
@@ -85,11 +77,14 @@ export function RepoInputPage() {
       else if (err.code === 'ECONNABORTED' || err.message?.includes('timeout'))
         errorMessage = 'Request timed out. Try a smaller repository or use ZIP upload.'
       else if (err.code === 'ERR_NETWORK' || err.response?.status === 504)
-        errorMessage = 'Large repository is still processing. Please wait 30-60 seconds and try again.'
+        errorMessage = 'Network error. Please check your connection.'
       else if (err.message) errorMessage = err.message
 
       setError(errorMessage)
-      setProgress(0)
+      
+      // Trigger shake animation
+      setShake(true)
+      setTimeout(() => setShake(false), 500)
     }
   }
 
@@ -294,24 +289,6 @@ export function RepoInputPage() {
             <p className="mb-4 text-xs text-red-400 animate-fade-in">{error}</p>
           )}
 
-          {/* Progress bar */}
-          {isProcessing && (
-            <div className="mb-4">
-              <div className="w-full h-1 rounded-full overflow-hidden" style={{ background: '#1a2540' }}>
-                <div
-                  className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: `${progress}%`,
-                    background: 'linear-gradient(90deg, #3b82f6, #8b5cf6)',
-                  }}
-                />
-              </div>
-              <p className="text-[11px] text-gray-500 mt-2 text-center tracking-wide">
-                {status === 'uploading' ? 'UPLOADING...' : 'PROCESSING REPOSITORY...'}
-              </p>
-            </div>
-          )}
-
           {/* OR divider */}
           <div className="flex items-center gap-3 mb-5">
             <div className="flex-1 h-px" style={{ background: '#1a2540' }} />
@@ -351,15 +328,22 @@ export function RepoInputPage() {
           <button
             onClick={handleAnalyze}
             disabled={isProcessing}
-            className="w-full py-3.5 rounded-[10px] text-white text-sm font-semibold tracking-wide transition-all duration-200 disabled:cursor-wait flex items-center justify-center min-h-[48px]"
+            className={`w-full py-3.5 rounded-[10px] text-white text-sm font-semibold tracking-wide transition-all duration-200 disabled:cursor-not-allowed flex items-center justify-center gap-2 min-h-[48px] ${
+              shake ? 'animate-shake' : ''
+            }`}
             style={{
               background: isError
                 ? '#dc2626'
                 : 'linear-gradient(135deg, #3b82f6, #8b5cf6)',
               border: 'none',
-              boxShadow: isProcessing ? 'none' : '0 4px 20px #3b82f640',
+              boxShadow: isProcessing 
+                ? '0 0 0 4px rgba(59, 130, 246, 0.1)' 
+                : isError
+                ? '0 4px 20px rgba(220, 38, 38, 0.4)'
+                : '0 4px 20px #3b82f640',
               fontFamily: 'inherit',
-              opacity: isProcessing ? 0.8 : 1,
+              animation: isProcessing ? 'pulse 2s ease-in-out infinite' : 'none',
+              pointerEvents: isProcessing ? 'none' : 'auto',
             }}
           >
             {isProcessing ? (
@@ -367,12 +351,36 @@ export function RepoInputPage() {
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-            ) : isError ? (
-              'Retry'
             ) : (
-              'Analyze Repository →'
+              <span>
+                {isError ? 'Retry' : 'Analyze Repository →'}
+              </span>
             )}
           </button>
+          
+          {/* CSS animations */}
+          <style>{`
+            @keyframes shake {
+              0%, 100% { transform: translateX(0); }
+              10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+              20%, 40%, 60%, 80% { transform: translateX(4px); }
+            }
+            
+            @keyframes pulse {
+              0%, 100% { 
+                opacity: 1;
+                transform: scale(1);
+              }
+              50% { 
+                opacity: 0.9;
+                transform: scale(0.98);
+              }
+            }
+            
+            .animate-shake {
+              animation: shake 0.5s ease-in-out;
+            }
+          `}</style>
         </div>
 
         {/* Feature cards */}

@@ -1,4 +1,5 @@
 """Code parsing and chunking utilities."""
+import json
 import os
 import re
 import tempfile
@@ -510,12 +511,41 @@ class RepositoryProcessor:
             'size': len(chunk['content'])
         }
     
-    def detect_tech_stack(self, files: List[Dict[str, Any]]) -> Dict[str, Any]:
+    # ── Known-keyword lookup tables for manifest scanning ────────────
+    _JS_FRAMEWORKS = {
+        'react': 'React', 'next': 'Next.js', 'vue': 'Vue.js', 'nuxt': 'Nuxt.js',
+        'angular': 'Angular', 'svelte': 'Svelte', 'express': 'Express',
+        'fastify': 'Fastify', 'nestjs': 'NestJS', 'koa': 'Koa',
+        'gatsby': 'Gatsby', 'remix': 'Remix', 'electron': 'Electron',
+        'tailwindcss': 'TailwindCSS', 'vite': 'Vite',
+    }
+    _PY_FRAMEWORKS = {
+        'django': 'Django', 'flask': 'Flask', 'fastapi': 'FastAPI',
+        'tornado': 'Tornado', 'celery': 'Celery', 'scrapy': 'Scrapy',
+        'pytest': 'pytest', 'pandas': 'Pandas', 'numpy': 'NumPy',
+        'boto3': 'AWS SDK (boto3)', 'tensorflow': 'TensorFlow',
+        'torch': 'PyTorch', 'langchain': 'LangChain',
+        'streamlit': 'Streamlit', 'sqlalchemy': 'SQLAlchemy',
+    }
+    _DB_KEYWORDS = {
+        'mongoose': 'MongoDB', 'mongodb': 'MongoDB', 'pymongo': 'MongoDB',
+        'pg': 'PostgreSQL', 'psycopg2': 'PostgreSQL', 'postgres': 'PostgreSQL',
+        'mysql': 'MySQL', 'mysql2': 'MySQL',
+        'redis': 'Redis', 'ioredis': 'Redis',
+        'sqlite3': 'SQLite', 'sqlite': 'SQLite',
+        'dynamodb': 'DynamoDB', 'boto3': 'DynamoDB',
+        'sequelize': 'SQL (Sequelize)', 'prisma': 'Prisma ORM',
+        'typeorm': 'TypeORM', 'knex': 'Knex.js',
+        'elasticsearch': 'Elasticsearch', 'cassandra': 'Cassandra',
+    }
+
+    def detect_tech_stack(self, files: List[Dict[str, Any]], repo_path: str = None) -> Dict[str, Any]:
         """
         Detect technology stack from files.
         
         Args:
             files: List of file metadata dicts
+            repo_path: Path to repository root (used to read manifest files)
             
         Returns:
             Dict with detected technologies
@@ -525,8 +555,9 @@ class RepositoryProcessor:
         languages = set()
         frameworks = set()
         libraries = set()
+        databases = set()
         
-        # Detect languages
+        # Detect languages from file extensions
         for file_info in files:
             ext = file_info['extension']
             if ext == '.py':
@@ -544,22 +575,12 @@ class RepositoryProcessor:
             elif ext == '.php':
                 languages.add('PHP')
         
-        # Check for config files and imports
+        # Check for config files in source files list
         for file_info in files:
             file_name = file_info['name']
             
-            # Package managers
-            if file_name == 'package.json':
-                frameworks.add('Node.js')
-            elif file_name == 'requirements.txt':
-                frameworks.add('Python')
-            elif file_name == 'Gemfile':
-                frameworks.add('Ruby')
-            elif file_name == 'go.mod':
-                frameworks.add('Go Modules')
-            
-            # Frameworks
-            if file_name in {'next.config.js', 'next.config.ts'}:
+            # Framework-specific config files
+            if file_name in {'next.config.js', 'next.config.ts', 'next.config.mjs'}:
                 frameworks.add('Next.js')
             elif file_name in {'nuxt.config.js', 'nuxt.config.ts'}:
                 frameworks.add('Nuxt.js')
@@ -568,25 +589,104 @@ class RepositoryProcessor:
             elif file_name == 'vue.config.js':
                 frameworks.add('Vue.js')
             
-            # Extract imports for library detection
+            # Extract imports for library/framework detection
             imports = self.extract_imports(file_info['path'])
             for imp in imports:
-                if 'react' in imp.lower():
+                imp_lower = imp.lower()
+                if 'react' in imp_lower:
                     libraries.add('React')
-                elif 'django' in imp.lower():
+                if 'django' in imp_lower:
                     frameworks.add('Django')
-                elif 'flask' in imp.lower():
+                if 'flask' in imp_lower:
                     frameworks.add('Flask')
-                elif 'express' in imp.lower():
+                if 'express' in imp_lower:
                     frameworks.add('Express')
-                elif 'spring' in imp.lower():
+                if 'spring' in imp_lower:
                     frameworks.add('Spring')
+                if 'fastapi' in imp_lower:
+                    frameworks.add('FastAPI')
+        
+        # ── Scan manifest files directly from disk ──────────────────
+        if repo_path:
+            self._scan_manifests(repo_path, languages, frameworks, databases)
         
         return {
             'languages': sorted(list(languages)),
             'frameworks': sorted(list(frameworks)),
-            'libraries': sorted(list(libraries))
+            'libraries': sorted(list(libraries)),
+            'databases': sorted(list(databases))
         }
+    
+    def _scan_manifests(
+        self,
+        repo_path: str,
+        languages: set,
+        frameworks: set,
+        databases: set
+    ) -> None:
+        """
+        Walk repo_path and read manifest files to detect frameworks & databases.
+        Mutates the provided sets in-place.
+        """
+        for dirpath, _dirs, filenames in os.walk(repo_path):
+            # Skip excluded directories
+            if any(excl in Path(dirpath).parts for excl in self.EXCLUDED_DIRS):
+                continue
+            
+            for fname in filenames:
+                fpath = os.path.join(dirpath, fname)
+                try:
+                    if fname == 'package.json':
+                        languages.add('JavaScript')
+                        with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                            pkg = json.loads(f.read())
+                        all_deps = {}
+                        all_deps.update(pkg.get('dependencies', {}))
+                        all_deps.update(pkg.get('devDependencies', {}))
+                        for dep_name in all_deps:
+                            dep_lower = dep_name.lower().replace('@', '').split('/')[0]
+                            if dep_lower in self._JS_FRAMEWORKS:
+                                frameworks.add(self._JS_FRAMEWORKS[dep_lower])
+                            if dep_lower in self._DB_KEYWORDS:
+                                databases.add(self._DB_KEYWORDS[dep_lower])
+                        if 'typescript' in all_deps or 'ts-node' in all_deps:
+                            languages.add('TypeScript')
+                    
+                    elif fname == 'requirements.txt':
+                        languages.add('Python')
+                        with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                            for line in f:
+                                dep = re.split(r'[>=<!\[\]]', line.strip().lower())[0].strip()
+                                if dep in self._PY_FRAMEWORKS:
+                                    frameworks.add(self._PY_FRAMEWORKS[dep])
+                                if dep in self._DB_KEYWORDS:
+                                    databases.add(self._DB_KEYWORDS[dep])
+                    
+                    elif fname == 'Gemfile':
+                        languages.add('Ruby')
+                    
+                    elif fname == 'go.mod':
+                        languages.add('Go')
+                        with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read().lower()
+                        if 'gin-gonic' in content:
+                            frameworks.add('Gin')
+                        if 'echo' in content:
+                            frameworks.add('Echo')
+                        if 'fiber' in content:
+                            frameworks.add('Fiber')
+                    
+                    elif fname == 'pom.xml':
+                        languages.add('Java')
+                        with open(fpath, 'r', encoding='utf-8', errors='ignore') as f:
+                            content = f.read().lower()
+                        if 'spring-boot' in content:
+                            frameworks.add('Spring Boot')
+                        if 'spring-web' in content or 'spring-mvc' in content:
+                            frameworks.add('Spring MVC')
+                
+                except Exception:
+                    continue
     
     def build_dependency_graph(self, files: List[Dict[str, Any]]) -> Dict[str, List[str]]:
         """

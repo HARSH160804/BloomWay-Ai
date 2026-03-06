@@ -14,13 +14,18 @@ import sys
 sys.path.append('/opt/python')  # Lambda layer path
 sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'lib'))
 
-from bedrock_client import BedrockClient
-from vector_store import DynamoDBVectorStore
+# Import from lib directory (Lambda-compatible paths)
+from lib.bedrock_client import BedrockClient
+from lib.vector_store import DynamoDBVectorStore
+from lib.analysis.engine import AnalysisEngine
+from lib.analysis.cache_manager import CacheManager
 
 
 # Initialize shared resources
 bedrock_client = BedrockClient()
 vector_store = DynamoDBVectorStore()
+analysis_engine = AnalysisEngine(bedrock_client)
+cache_manager = CacheManager()
 dynamodb = boto3.resource('dynamodb')
 repos_table = dynamodb.Table(os.environ.get('REPOSITORIES_TABLE', 'BloomWay-Repositories'))
 cache_table = dynamodb.Table(os.environ.get('CACHE_TABLE', 'BloomWay-Cache'))
@@ -43,26 +48,42 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     
     Query parameters:
         level: Analysis level (basic/intermediate/advanced), default: intermediate
+        view: Response view filter (all/summary/visualizations/patterns/layers/metrics/recommendations), default: all
+        format: Visualization format filter (all/mermaid/interactive/d3/cytoscape), default: all
     
     Returns:
+        Full response (view=all):
         {
             "repo_id": "uuid",
-            "architecture": {
-                "overview": "string",
-                "components": [{"name": "string", "description": "string", "files": []}],
-                "patterns": ["MVC", "Microservices"],
-                "data_flow": "string description",
-                "entry_points": ["src/app.py", "src/index.js"]
-            },
-            "diagram": "flowchart TD...",
-            "generated_at": "timestamp"
+            "schema_version": "2.0",
+            "generated_at": "timestamp",
+            "execution_duration_ms": 1234,
+            "analysis_level": "intermediate",
+            "statistics": {...},
+            "patterns": [...],
+            "layers": [...],
+            "tech_stack": [...],
+            "data_flows": [...],
+            "dependencies": {...},
+            "metrics": {...},
+            "recommendations": [...],
+            "visualizations": {...},
+            "architecture": {...},
+            "diagram": "flowchart TD..."
         }
+        
+        Filtered response examples:
+        - view=visualizations: Only visualizations section
+        - view=patterns: Only patterns section
+        - format=mermaid: Only mermaid diagrams in visualizations
     """
     try:
         # Extract parameters
         repo_id = event.get('pathParameters', {}).get('id')
         query_params = event.get('queryStringParameters') or {}
         level = query_params.get('level', 'intermediate')
+        view = query_params.get('view', 'all')
+        format_type = query_params.get('format', 'all')
         
         if not repo_id:
             return _error_response(400, "Repository ID is required")
@@ -70,12 +91,20 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         if level not in ['basic', 'intermediate', 'advanced']:
             return _error_response(400, f"Invalid level: {level}. Must be 'basic', 'intermediate', or 'advanced'")
         
-        print(f"Generating architecture for repo_id: {repo_id}, level: {level}")
+        valid_views = ['all', 'summary', 'visualizations', 'patterns', 'layers', 'metrics', 'recommendations', 'tech_stack', 'dependencies', 'data_flows']
+        if view not in valid_views:
+            return _error_response(400, f"Invalid view: {view}. Must be one of {', '.join(valid_views)}")
         
-        # Step 1: Check cache first
-        cached_result = _get_cached_architecture(repo_id, level)
+        valid_formats = ['all', 'mermaid', 'interactive', 'd3', 'cytoscape']
+        if format_type not in valid_formats:
+            return _error_response(400, f"Invalid format: {format_type}. Must be one of {', '.join(valid_formats)}")
+        
+        print(f"Generating architecture for repo_id: {repo_id}, level: {level}, view: {view}, format: {format_type}")
+        
+        # Step 1: Check cache first using new Cache Manager
+        cached_result = cache_manager.get_cached_analysis(repo_id, level)
         if cached_result:
-            print("Returning cached architecture")
+            print("Returning cached architecture (v2.0)")
             return {
                 'statusCode': 200,
                 'headers': CORS_HEADERS,
@@ -99,28 +128,41 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print("Retrieving file chunks from vector store...")
         file_summaries = _get_file_summaries(repo_id)
         
-        # Step 4: Build context for architecture analysis (inject repo metrics + folder structure)
-        context = _build_architecture_context(repo_metadata, file_summaries, level)
-        
-        # Step 5: Generate architecture analysis with Bedrock (includes mermaid diagram)
-        print("Generating architecture analysis with Bedrock...")
+        # Step 4: Generate comprehensive architecture analysis using new Analysis Engine
+        print("Generating comprehensive architecture analysis with Analysis Engine v2.0...")
         try:
-            architecture_json = _generate_architecture_analysis(context, level)
+            result = analysis_engine.analyze(
+                repo_id=repo_id,
+                repo_metadata=repo_metadata,
+                file_summaries=file_summaries,
+                level=level
+            )
+            
+            # Apply view and format filters
+            result = _apply_response_filters(result, view, format_type)
+            
+            # Cache the result using new Cache Manager
+            cache_manager.cache_analysis(repo_id, level, result)
+            
         except Exception as e:
             print(f"Failed to generate architecture analysis: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
+            # Fallback to legacy analysis
+            print("Falling back to legacy analysis...")
+            context = _build_architecture_context(repo_metadata, file_summaries, level)
             architecture_json = _generate_fallback_architecture(repo_metadata, file_summaries)
-        
-        # Step 6: Build response
-        timestamp = datetime.utcnow().isoformat() + 'Z'
-        result = {
-            'repo_id': repo_id,
-            'architecture': architecture_json,
-            'diagram': architecture_json.get('mermaidDiagram', _generate_fallback_diagram(repo_metadata)),
-            'generated_at': timestamp
-        }
-        
-        # Step 8: Cache result in DynamoDB
-        _cache_architecture(repo_id, level, result)
+            timestamp = datetime.utcnow().isoformat() + 'Z'
+            result = {
+                'repo_id': repo_id,
+                'architecture': architecture_json,
+                'diagram': architecture_json.get('mermaidDiagram', _generate_fallback_diagram(repo_metadata)),
+                'generated_at': timestamp,
+                'schema_version': '1.0',
+                'error': str(e)
+            }
+            _cache_architecture(repo_id, level, result)
         
         return {
             'statusCode': 200,
@@ -494,3 +536,116 @@ def _error_response(status_code: int, message: str) -> Dict[str, Any]:
             'status_code': status_code
         })
     }
+
+
+def _apply_response_filters(result: Dict[str, Any], view: str, format_type: str) -> Dict[str, Any]:
+    """
+    Apply view and format filters to the analysis result.
+    
+    Args:
+        result: Full analysis result from Analysis Engine
+        view: View filter (all/summary/visualizations/patterns/layers/metrics/recommendations/tech_stack/dependencies/data_flows)
+        format_type: Format filter for visualizations (all/mermaid/interactive/d3/cytoscape)
+        
+    Returns:
+        Filtered result based on view and format parameters
+    """
+    # If view is 'all' and format is 'all', return full result
+    if view == 'all' and format_type == 'all':
+        return result
+    
+    # Apply view filter
+    if view != 'all':
+        filtered_result = {
+            'repo_id': result.get('repo_id'),
+            'schema_version': result.get('schema_version'),
+            'generated_at': result.get('generated_at'),
+            'analysis_level': result.get('analysis_level')
+        }
+        
+        if view == 'summary':
+            # Summary includes statistics, execution time, and basic metadata
+            filtered_result['statistics'] = result.get('statistics', {})
+            filtered_result['execution_duration_ms'] = result.get('execution_duration_ms', 0)
+            filtered_result['architecture'] = result.get('architecture', {})
+            
+        elif view == 'visualizations':
+            filtered_result['visualizations'] = result.get('visualizations', {})
+            filtered_result['diagram'] = result.get('diagram', '')
+            
+        elif view == 'patterns':
+            filtered_result['patterns'] = result.get('patterns', [])
+            
+        elif view == 'layers':
+            filtered_result['layers'] = result.get('layers', [])
+            
+        elif view == 'metrics':
+            filtered_result['metrics'] = result.get('metrics', {})
+            filtered_result['statistics'] = result.get('statistics', {})
+            
+        elif view == 'recommendations':
+            filtered_result['recommendations'] = result.get('recommendations', [])
+            
+        elif view == 'tech_stack':
+            filtered_result['tech_stack'] = result.get('tech_stack', [])
+            # Include tech stack cards from visualizations if available
+            visualizations = result.get('visualizations', {})
+            if 'tech_stack_cards' in visualizations:
+                filtered_result['tech_stack_cards'] = visualizations['tech_stack_cards']
+            
+        elif view == 'dependencies':
+            filtered_result['dependencies'] = result.get('dependencies', {})
+            
+        elif view == 'data_flows':
+            filtered_result['data_flows'] = result.get('data_flows', [])
+            # Include data flow scenarios from visualizations if available
+            visualizations = result.get('visualizations', {})
+            if 'data_flow_scenarios' in visualizations:
+                filtered_result['data_flow_scenarios'] = visualizations['data_flow_scenarios']
+        
+        result = filtered_result
+    
+    # Apply format filter to visualizations
+    if format_type != 'all' and 'visualizations' in result:
+        filtered_visualizations = {}
+        
+        for viz_key, viz_data in result['visualizations'].items():
+            # Skip non-visualization data (like data_flow_scenarios, tech_stack_cards)
+            if not isinstance(viz_data, dict) or 'diagram_type' not in viz_data:
+                filtered_visualizations[viz_key] = viz_data
+                continue
+            
+            filtered_viz = {
+                'diagram_type': viz_data.get('diagram_type')
+            }
+            
+            if format_type == 'mermaid':
+                filtered_viz['mermaid'] = viz_data.get('mermaid', '')
+                
+            elif format_type == 'interactive':
+                # Interactive includes the full interactive JSON
+                if 'd3_json' in viz_data:
+                    filtered_viz['interactive'] = viz_data['d3_json']
+                filtered_viz['metadata'] = viz_data.get('metadata', {})
+                
+            elif format_type == 'd3':
+                filtered_viz['d3_json'] = viz_data.get('d3_json', {})
+                filtered_viz['metadata'] = viz_data.get('metadata', {})
+                
+            elif format_type == 'cytoscape':
+                filtered_viz['cytoscape_json'] = viz_data.get('cytoscape_json', {})
+                filtered_viz['metadata'] = viz_data.get('metadata', {})
+            
+            filtered_visualizations[viz_key] = filtered_viz
+        
+        result['visualizations'] = filtered_visualizations
+        
+        # Also filter the top-level diagram field if present
+        if format_type == 'mermaid' and 'diagram' in result:
+            # Keep diagram as-is (it's already mermaid)
+            pass
+        elif format_type != 'mermaid' and 'diagram' in result:
+            # Remove diagram for non-mermaid formats
+            result.pop('diagram', None)
+    
+    return result

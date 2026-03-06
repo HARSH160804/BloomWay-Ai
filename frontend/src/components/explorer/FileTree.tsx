@@ -4,6 +4,7 @@ import { FileNode } from './FileNode'
 interface FileTreeProps {
   repoId: string
   searchQuery: string
+  onFileSelect?: (filePath: string) => void
 }
 
 interface FileItem {
@@ -13,7 +14,7 @@ interface FileItem {
   children?: FileItem[]
 }
 
-export function FileTree({ repoId, searchQuery }: FileTreeProps) {
+export function FileTree({ repoId, searchQuery, onFileSelect }: FileTreeProps) {
   const { data: repo, isLoading: loading, error } = useRepo(repoId)
 
   const buildFileTree = (filePaths: string[]): FileItem[] => {
@@ -109,7 +110,7 @@ export function FileTree({ repoId, searchQuery }: FileTreeProps) {
   return (
     <div className="space-y-1">
       {filteredFiles.map((item) => (
-        <FileNode key={item.path} item={item} level={0} />
+        <FileNode key={item.path} item={item} level={0} onFileSelect={onFileSelect} />
       ))}
     </div>
   )

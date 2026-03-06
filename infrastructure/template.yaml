@@ -14,6 +14,7 @@ Globals:
         EMBEDDINGS_TABLE: !Ref EmbeddingsTable
         CODE_BUCKET: !Ref CodeArtifactsBucket
         CACHE_TABLE: !Ref CacheTable
+        DOCS_TABLE: !Ref RepoDocumentationTable
         BEDROCK_REGION: !Ref AWS::Region
   Api:
     Cors:
@@ -29,6 +30,7 @@ Resources:
       StageName: Prod
       BinaryMediaTypes:
         - 'multipart/form-data'
+        - 'application/pdf'
       Cors:
         AllowMethods: "'GET,POST,PUT,DELETE,OPTIONS'"
         AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
@@ -211,18 +213,82 @@ Resources:
             Path: /repos/{id}/chat
             Method: POST
 
+  GetFileContentFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.get_file_content.lambda_handler
+      MemorySize: 256
+      Timeout: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepositoriesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref EmbeddingsTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        GetFileContent:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/{id}/file
+            Method: GET
+
+  GetRepoMetadataFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.get_repo_metadata.lambda_handler
+      MemorySize: 256
+      Timeout: 30
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepositoriesTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        GetRepoMetadata:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/{id}/metadata
+            Method: GET
+
+  # Documentation Generation and Export Functions
   GenerateDocsFunction:
     Type: AWS::Serverless::Function
     Properties:
       CodeUri: ../backend/
-      Handler: handlers.generate_docs.lambda_handler
-      MemorySize: 512
-      Timeout: 120
+      Handler: handlers.docs_generate.lambda_handler
+      MemorySize: 1024
+      Timeout: 300
+      Environment:
+        Variables:
+          REPOSITORIES_TABLE: !Ref RepositoriesTable
+          EMBEDDINGS_TABLE: !Ref EmbeddingsTable
+          CACHE_TABLE: !Ref CacheTable
+          REPO_DOCUMENTATION_TABLE: !Ref RepoDocumentationTable
+          CODE_BUCKET: !Ref CodeArtifactsBucket
       Policies:
-        - DynamoDBReadPolicy:
-            TableName: !Ref SessionsTable
+        - DynamoDBCrudPolicy:
+            TableName: !Ref RepoDocumentationTable
         - DynamoDBReadPolicy:
             TableName: !Ref RepositoriesTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref EmbeddingsTable
+        - DynamoDBReadPolicy:
+            TableName: !Ref CacheTable
         - S3CrudPolicy:
             BucketName: !Ref CodeArtifactsBucket
         - Statement:
@@ -242,8 +308,67 @@ Resources:
           Type: Api
           Properties:
             RestApiId: !Ref BloomWayApi
-            Path: /repos/{id}/docs
+            Path: /repos/{id}/docs/generate
             Method: POST
+
+  ExportDocsFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.docs_export.lambda_handler
+      MemorySize: 2048
+      Timeout: 30
+      Environment:
+        Variables:
+          REPO_DOCUMENTATION_TABLE: !Ref RepoDocumentationTable
+          CODE_BUCKET: !Ref CodeArtifactsBucket
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepoDocumentationTable
+        - S3ReadPolicy:
+            BucketName: !Ref CodeArtifactsBucket
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        ExportDocs:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/{id}/docs/export
+            Method: GET
+
+  DocsStatusFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: ../backend/
+      Handler: handlers.docs_status.lambda_handler
+      MemorySize: 256
+      Timeout: 10
+      Environment:
+        Variables:
+          REPO_DOCUMENTATION_TABLE: !Ref RepoDocumentationTable
+      Policies:
+        - DynamoDBReadPolicy:
+            TableName: !Ref RepoDocumentationTable
+        - Statement:
+            - Effect: Allow
+              Action:
+                - logs:CreateLogGroup
+                - logs:CreateLogStream
+                - logs:PutLogEvents
+              Resource: '*'
+      Events:
+        DocsStatus:
+          Type: Api
+          Properties:
+            RestApiId: !Ref BloomWayApi
+            Path: /repos/{id}/docs/status
+            Method: GET
 
   # DynamoDB Tables
   SessionsTable:
@@ -314,6 +439,25 @@ Resources:
       TimeToLiveSpecification:
         AttributeName: ttl
         Enabled: true
+      Tags:
+        - Key: Application
+          Value: BloomWay-AI
+
+  RepoDocumentationTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: BloomWay-RepoDocumentation
+      BillingMode: PAY_PER_REQUEST
+      AttributeDefinitions:
+        - AttributeName: repo_id
+          AttributeType: S
+      KeySchema:
+        - AttributeName: repo_id
+          KeyType: HASH
+      PointInTimeRecoverySpecification:
+        PointInTimeRecoveryEnabled: true
+      SSESpecification:
+        SSEEnabled: true
       Tags:
         - Key: Application
           Value: BloomWay-AI
@@ -397,3 +541,9 @@ Outputs:
     Value: !Ref CacheTable
     Export:
       Name: BloomWayCacheTable
+
+  RepoDocumentationTableName:
+    Description: DynamoDB RepoDocumentation table name
+    Value: !Ref RepoDocumentationTable
+    Export:
+      Name: BloomWayRepoDocumentationTable

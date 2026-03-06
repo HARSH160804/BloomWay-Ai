@@ -97,13 +97,16 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         print("Generating embedding for user message...")
         try:
             query_embedding = bedrock_client.generate_embedding(message)
+            print(f"✓ Query embedding generated. Length: {len(query_embedding)}, Type: {type(query_embedding)}")
         except Exception as e:
             print(f"Failed to generate embedding: {str(e)}")
             return _error_response(500, f"Failed to process message: {str(e)}")
         
         # Step 3: Retrieve relevant context from vector store
         print(f"Retrieving context with scope: {scope}")
+        print(f"DEBUG: repo_id={repo_id}, type={type(repo_id)}")
         context_chunks = _retrieve_context(repo_id, query_embedding, scope)
+        print(f"✓ Retrieved {len(context_chunks)} context chunks")
         
         if not context_chunks:
             return _error_response(404, "No relevant code found in repository")
