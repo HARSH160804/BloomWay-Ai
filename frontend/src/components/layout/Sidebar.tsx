@@ -12,17 +12,17 @@ export function Sidebar({ repoId, onFileSelect }: SidebarProps) {
   return (
     <div className="h-full flex flex-col">
       {/* Search */}
-      <div className="p-4 border-b border-gray-200 dark:border-gray-700">
+      <div className="p-4 border-b border-[#1a1a1a]">
         <div className="relative">
           <input
             type="text"
             placeholder="Search files..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full px-3 py-2 pl-10 bg-gray-50 dark:bg-gray-900 border border-gray-300 dark:border-gray-600 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-sm"
+            className="w-full px-3 py-2 pl-10 bg-black border border-[#1a1a1a] rounded-lg focus:outline-none focus:ring-2 focus:ring-white/20 text-sm text-gray-200 placeholder-gray-500"
           />
           <svg
-            className="absolute left-3 top-2.5 w-4 h-4 text-gray-400"
+            className="absolute left-3 top-2.5 w-4 h-4 text-gray-500"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"

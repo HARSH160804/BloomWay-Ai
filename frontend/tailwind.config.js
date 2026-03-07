@@ -9,10 +9,14 @@ export default {
     extend: {
       colors: {
         dark: {
-          bg: '#0a0c12',
-          surface: '#0f1419',
-          border: '#2d3748',
+          bg: '#000000',
+          surface: '#0a0a0a',
+          border: '#1a1a1a',
         },
+      },
+      fontFamily: {
+        sans: ['"Neue Alte Grotesk"', 'system-ui', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', '"Helvetica Neue"', 'Arial', 'sans-serif'],
+        mono: ['"Chivo Mono"', 'ui-monospace', 'SFMono-Regular', '"SF Mono"', 'Menlo', 'Consolas', 'monospace'],
       },
     },
   },

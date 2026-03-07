@@ -5,18 +5,20 @@
 @layer base {
   html {
     @apply bg-dark-bg;
-    background-color: #0a0c12;
+    background-color: #000000;
   }
-  
+
   body {
-    @apply bg-dark-bg text-gray-100;
-    background-color: #0a0c12;
+    @apply bg-dark-bg text-gray-100 font-sans;
+    background-color: #000000;
     min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
   }
-  
+
   #root {
     min-height: 100vh;
-    background-color: #0a0c12;
+    background-color: #000000;
   }
 }
 
@@ -29,15 +31,15 @@
       transform: translateX(100%);
     }
   }
-  
+
   .animate-shimmer {
     animation: shimmer 2s infinite;
   }
-  
+
   .animation-delay-200 {
     animation-delay: 200ms;
   }
-  
+
   .animation-delay-400 {
     animation-delay: 400ms;
   }

@@ -11,26 +11,25 @@ const customStyles = `
     from { opacity: 0; }
     to { opacity: 1; }
   }
-  
+
   @keyframes slideUp {
-    from { 
+    from {
       opacity: 0;
       transform: translateY(10px);
     }
-    to { 
+    to {
       opacity: 1;
       transform: translateY(0);
     }
   }
-  
+
   .dashboard-background {
-    background: 
-      linear-gradient(rgba(59,130,246,0.06) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(59,130,246,0.06) 1px, transparent 1px),
-      radial-gradient(circle at 30% 20%, rgba(30, 64, 175, 0.15), transparent 40%),
-      linear-gradient(180deg, #020617 0%, #030b1a 100%);
-    background-size: 60px 60px, 60px 60px, 100% 100%, 100% 100%;
-    background-attachment: fixed, fixed, fixed, fixed;
+    background:
+      linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px),
+      linear-gradient(180deg, #000000 0%, #050505 100%);
+    background-size: 60px 60px, 60px 60px, 100% 100%;
+    background-attachment: fixed, fixed, fixed;
   }
 `
 
@@ -81,26 +80,22 @@ interface RepoMetadata {
 export function RepoExplorerPagePremium() {
   const { repoId } = useParams<{ repoId: string }>()
   const { explanationLevel, setExplanationLevel } = useApp()
-  
-  // Loading states
+
   const [isIndexing, setIsIndexing] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  
-  // Data states
+
   const [repoMetadata, setRepoMetadata] = useState<RepoMetadata | null>(null)
   const [fileTree, setFileTree] = useState<FileItem[]>([])
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [fileContent, setFileContent] = useState<string>('')
   const [fileLanguage, setFileLanguage] = useState<string>('typescript')
   const [explanation, setExplanation] = useState<Explanation | null>(null)
-  
-  // UI states
+
   const [isLoadingFile, setIsLoadingFile] = useState(false)
   const [isLoadingExplanation, setIsLoadingExplanation] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedFolders, setExpandedFolders] = useState<Set<string>>(new Set())
 
-  // Poll for indexing status
   useEffect(() => {
     if (!repoId) return
 
@@ -118,8 +113,6 @@ export function RepoExplorerPagePremium() {
           if (pollInterval) {
             clearInterval(pollInterval)
           }
-
-          // Fetch metadata and file tree
           await fetchRepoData()
         } else if (status === 'failed') {
           setError('Repository indexing failed. Please try again.')
@@ -152,38 +145,32 @@ export function RepoExplorerPagePremium() {
     if (!repoId) return
 
     try {
-      // Fetch file tree from status endpoint first (this is the critical one)
       const statusResponse = await getRepoStatus(repoId)
       console.log('Status response:', statusResponse.data)
       console.log('File paths:', statusResponse.data.file_paths)
-      
+
       const filePaths = statusResponse.data.file_paths || []
       console.log('File paths count:', filePaths.length)
-      
-      // Build file tree
+
       const tree = buildFileTree(filePaths)
       console.log('Built file tree:', tree)
       setFileTree(tree)
 
-      // Auto-select README or first file
       if (filePaths.length > 0) {
         const defaultFile = filePaths.find(f => f.toLowerCase().includes('readme')) || filePaths[0]
         console.log('Auto-selecting file:', defaultFile)
         setSelectedFile(defaultFile)
-        
-        // Auto-expand root folders
+
         const rootFolders = tree.filter(item => item.type === 'directory').map(item => item.path)
         setExpandedFolders(new Set(rootFolders))
       }
 
-      // Try to fetch metadata (optional - may not be deployed yet)
       try {
         const metadataResponse = await getRepoMetadata(repoId)
         console.log('Metadata response:', metadataResponse.data)
         setRepoMetadata(metadataResponse.data)
       } catch (metaErr) {
         console.warn('Metadata endpoint not available (may not be deployed yet):', metaErr)
-        // Create fallback metadata from status response
         const statusData = statusResponse.data
         setRepoMetadata({
           repoName: statusData.source || 'Repository',
@@ -246,7 +233,6 @@ export function RepoExplorerPagePremium() {
     return sortItems(root.children || [])
   }
 
-  // Fetch file content and explanation when file is selected
   useEffect(() => {
     if (!repoId || !selectedFile) return
 
@@ -256,17 +242,15 @@ export function RepoExplorerPagePremium() {
       setExplanation(null)
 
       try {
-        // Fetch file content
         const contentResponse = await getFileContent(repoId, selectedFile)
         setFileContent(contentResponse.data.content)
         setFileLanguage(contentResponse.data.language)
         setIsLoadingFile(false)
 
-        // Fetch explanation
         try {
           const explanationResponse = await explainFile(repoId, selectedFile, explanationLevel)
           console.log('Explanation response:', explanationResponse.data)
-          
+
           const explanationData = explanationResponse.data.explanation as any
           setExplanation({
             purpose: explanationData.purpose || 'No description available',
@@ -314,37 +298,30 @@ export function RepoExplorerPagePremium() {
     setExpandedFolders(newExpanded)
   }
 
-  // Get file icon based on extension
   const getFileIcon = (filename: string) => {
     const ext = filename.split('.').pop()?.toLowerCase()
-    
+
     const iconMap: Record<string, string> = {
-      // JavaScript/TypeScript
       'js': '📄',
       'jsx': '⚛️',
       'ts': '📘',
       'tsx': '⚛️',
-      // Config
       'json': '📋',
       'yaml': '⚙️',
       'yml': '⚙️',
       'toml': '⚙️',
-      // Styles
       'css': '🎨',
       'scss': '🎨',
       'sass': '🎨',
-      // Markup
       'html': '🌐',
       'xml': '📰',
       'md': '📝',
-      // Python
       'py': '🐍',
-      // Other
       'sh': '🔧',
       'env': '🔐',
       'gitignore': '🚫',
     }
-    
+
     return iconMap[ext || ''] || '📄'
   }
 
@@ -360,7 +337,6 @@ export function RepoExplorerPagePremium() {
             style={{ paddingLeft: `${level * 12 + 8}px` }}
             className="group flex items-center space-x-1.5 py-1 px-2 hover:bg-white/5 rounded-md cursor-pointer transition-all"
           >
-            {/* Chevron Icon */}
             <svg
               className={`w-3 h-3 transition-transform duration-200 text-gray-500 group-hover:text-gray-400 ${
                 isExpanded ? 'rotate-90' : ''
@@ -371,22 +347,20 @@ export function RepoExplorerPagePremium() {
             >
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
-            
-            {/* Folder Icon */}
+
             <svg
-              className={`w-4 h-4 ${isExpanded ? 'text-blue-400' : 'text-gray-500'} group-hover:text-blue-400 transition-colors`}
+              className={`w-4 h-4 ${isExpanded ? 'text-white' : 'text-gray-500'} group-hover:text-white transition-colors`}
               fill="currentColor"
               viewBox="0 0 20 20"
             >
               <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z" />
             </svg>
-            
+
             <span className="text-[13px] font-medium text-gray-300 group-hover:text-white transition-colors truncate">
               {item.name}
             </span>
           </div>
-          
-          {/* Animated Children */}
+
           <div
             className={`overflow-hidden transition-all duration-200 ${
               isExpanded ? 'max-h-[2000px] opacity-100' : 'max-h-0 opacity-0'
@@ -405,7 +379,7 @@ export function RepoExplorerPagePremium() {
         style={{ paddingLeft: `${level * 12 + 28}px` }}
         className={`group flex items-center space-x-2 py-1 px-2 rounded-md cursor-pointer transition-all duration-200 ${
           isSelected
-            ? 'bg-blue-600/10 text-blue-400 shadow-[inset_2px_0_0_0_rgb(59,130,246)]'
+            ? 'bg-white/10 text-white shadow-[inset_2px_0_0_0_rgb(255,255,255)]'
             : 'hover:bg-white/5 text-gray-400 hover:text-gray-200'
         }`}
       >
@@ -417,11 +391,11 @@ export function RepoExplorerPagePremium() {
 
   const getConfidenceBadge = (confidence: number) => {
     if (confidence >= 0.8) {
-      return <span className="px-2 py-0.5 bg-green-500/10 text-green-400 text-[10px] rounded font-semibold">High Confidence</span>
+      return <span className="px-2 py-0.5 bg-white/10 text-white text-[10px] rounded font-semibold">High Confidence</span>
     } else if (confidence >= 0.5) {
-      return <span className="px-2 py-0.5 bg-yellow-500/10 text-yellow-400 text-[10px] rounded font-semibold">Medium Confidence</span>
+      return <span className="px-2 py-0.5 bg-white/5 text-gray-400 text-[10px] rounded font-semibold">Medium Confidence</span>
     } else {
-      return <span className="px-2 py-0.5 bg-red-500/10 text-red-400 text-[10px] rounded font-semibold">Low Confidence</span>
+      return <span className="px-2 py-0.5 bg-white/5 text-gray-500 text-[10px] rounded font-semibold">Low Confidence</span>
     }
   }
 
@@ -435,14 +409,14 @@ export function RepoExplorerPagePremium() {
 
   if (error) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#0a0e1a]">
+      <div className="min-h-screen flex items-center justify-center bg-black">
         <div className="text-center max-w-md">
           <div className="text-6xl mb-4">⚠️</div>
           <h2 className="text-2xl font-bold text-white mb-2">Error</h2>
           <p className="text-gray-400 mb-6">{error}</p>
           <Link
             to="/"
-            className="inline-block px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            className="inline-block px-6 py-3 bg-white text-black rounded-lg hover:bg-gray-200 transition-colors font-mono"
           >
             Back to Home
           </Link>
@@ -454,35 +428,29 @@ export function RepoExplorerPagePremium() {
   return (
     <div className="h-screen flex flex-col dashboard-background text-white overflow-hidden">
       <style>{customStyles}</style>
-      
+
       {/* Premium Repository Header */}
-      <div className="bg-[#0a0d12] border-b border-[#2d3748] px-6 py-3">
+      <div className="bg-black border-b border-[#1a1a1a] px-6 py-3">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          {/* Left Section - Single Row */}
           <div className="flex items-center space-x-4 flex-wrap">
-            {/* Logo */}
-            <Link 
-              to="/" 
+            <Link
+              to="/"
               className="flex items-center space-x-2 hover:opacity-80 transition-opacity"
             >
-              {/* BloomWay AI Logo */}
-              <img 
-                src="/logo_bloomway.png" 
-                alt="BloomWay AI Logo" 
+              <img
+                src="/logo_bloomway.png"
+                alt="BloomWay AI Logo"
                 className="w-8 h-8 rounded-xl object-contain"
               />
-              {/* Text */}
               <span className="text-[14px] font-bold tracking-wide">
-                <span className="text-gray-200">BLOOMWAY</span>
-                <span className="text-gray-500">·</span>
-                <span className="text-blue-400">AI</span>
+                <span className="text-white">BLOOMWAY</span>
+                <span className="text-gray-600">·</span>
+                <span className="text-gray-400">AI</span>
               </span>
             </Link>
-            
-            {/* Vertical Divider */}
+
             <div className="h-8 w-px bg-gradient-to-b from-transparent via-gray-700 to-transparent"></div>
-            
-            {/* Repo Name */}
+
             <h1 className="text-[13px] font-normal leading-none flex items-center space-x-1.5">
               {repoMetadata?.repoName ? (
                 repoMetadata.repoName.includes('/') ? (
@@ -498,38 +466,34 @@ export function RepoExplorerPagePremium() {
                 <span className="text-gray-300">Repository</span>
               )}
             </h1>
-            
-            {/* File Count */}
+
             <span className="text-[11px] text-gray-500 font-normal">
               {repoMetadata?.totalFiles || 0} files
             </span>
-            
-            {/* Tech Stack Badges */}
+
             <div className="flex items-center space-x-1.5">
               {repoMetadata?.techStack.languages.slice(0, 3).map(lang => (
-                <span 
-                  key={lang} 
-                  className="px-1.5 py-0.5 bg-[#2d3748] text-gray-300 text-[9px] rounded-full font-medium border border-[#3d4758] hover:bg-[#3d4758] transition-colors"
+                <span
+                  key={lang}
+                  className="px-1.5 py-0.5 bg-[#1a1a1a] text-gray-300 text-[9px] rounded-full font-medium border border-[#2a2a2a] hover:bg-[#2a2a2a] transition-colors"
                 >
                   {lang}
                 </span>
               ))}
             </div>
-            
-            {/* Indexed Badge */}
-            <span className="px-1.5 py-0.5 bg-green-500/10 text-green-400 text-[9px] rounded-full font-medium flex items-center space-x-1 border border-green-500/30">
+
+            <span className="px-1.5 py-0.5 bg-white/5 text-gray-400 text-[9px] rounded-full font-medium flex items-center space-x-1 border border-white/10">
               <svg className="w-2 h-2 fill-current" viewBox="0 0 8 8">
                 <circle cx="4" cy="4" r="3" />
               </svg>
               <span>Indexed</span>
             </span>
           </div>
-          
-          {/* Right Section - Actions */}
+
           <div className="flex items-center space-x-2">
             <Link
               to={`/repo/${repoId}/architecture`}
-              className="px-3 py-1.5 text-gray-400 hover:text-gray-200 transition-colors font-medium flex items-center space-x-1.5"
+              className="px-3 py-1.5 text-gray-400 hover:text-white transition-colors font-mono font-medium flex items-center space-x-1.5"
               style={{ fontSize: '12px' }}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -537,10 +501,10 @@ export function RepoExplorerPagePremium() {
               </svg>
               <span>Architecture</span>
             </Link>
-            
+
             <Link
               to={`/repo/${repoId}/chat`}
-              className="px-3 py-1.5 text-gray-400 hover:text-gray-200 transition-colors font-medium flex items-center space-x-1.5"
+              className="px-3 py-1.5 text-gray-400 hover:text-white transition-colors font-mono font-medium flex items-center space-x-1.5"
               style={{ fontSize: '12px' }}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -554,10 +518,9 @@ export function RepoExplorerPagePremium() {
 
       {/* Main Layout - 3 Column Grid */}
       <div className="flex-1 flex overflow-hidden bg-transparent">
-        {/* Left Sidebar - File Tree (VSCode Style) */}
-        <div className="w-[240px] flex-shrink-0 border-r border-[#2d3748] flex flex-col bg-[#0a0d12]">
-          {/* Search Input */}
-          <div className="p-3 border-b border-[#2d3748]">
+        {/* Left Sidebar - File Tree */}
+        <div className="w-[240px] flex-shrink-0 border-r border-[#1a1a1a] flex flex-col bg-black">
+          <div className="p-3 border-b border-[#1a1a1a]">
             <div className="relative">
               <svg
                 className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-gray-500"
@@ -577,12 +540,11 @@ export function RepoExplorerPagePremium() {
                 placeholder="Search files..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-9 pr-3 py-1.5 bg-[#0a0d12] border border-[#2d3748] rounded-full text-[12px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                className="w-full pl-9 pr-3 py-1.5 bg-black border border-[#1a1a1a] rounded-full text-[12px] text-gray-300 placeholder-gray-600 focus:outline-none focus:border-white/20 transition-colors"
               />
             </div>
           </div>
-          
-          {/* File Tree with Scroll Shadow */}
+
           <div className="flex-1 overflow-y-auto p-2">
             {fileTree.length === 0 ? (
               <div className="text-center py-8 px-4">
@@ -611,14 +573,14 @@ export function RepoExplorerPagePremium() {
         {/* Center Panel - Code Viewer */}
         <div className="flex-1 min-w-0 flex flex-col bg-transparent">
           {selectedFile && (
-            <div className="px-4 py-2 bg-[#0a0d12] border-b border-[#2d3748]">
+            <div className="px-4 py-2 bg-black border-b border-[#1a1a1a]">
               <span className="text-[11px] text-gray-500 font-mono">{selectedFile}</span>
             </div>
           )}
-          <div className="flex-1 bg-[#0a0d12] overflow-hidden">
+          <div className="flex-1 bg-black overflow-hidden">
             {isLoadingFile ? (
               <div className="flex items-center justify-center h-full">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
               </div>
             ) : (
               <Editor
@@ -645,8 +607,8 @@ export function RepoExplorerPagePremium() {
                     inherit: true,
                     rules: [],
                     colors: {
-                      'editor.background': '#0a0d12',
-                      'editor.lineHighlightBackground': '#1a1f2e',
+                      'editor.background': '#000000',
+                      'editor.lineHighlightBackground': '#0a0a0a',
                       'editorLineNumber.foreground': '#4b5563',
                       'editorLineNumber.activeForeground': '#9ca3af',
                     }
@@ -661,26 +623,24 @@ export function RepoExplorerPagePremium() {
         </div>
 
         {/* Right Panel - AI Insights */}
-        <div className="w-[340px] flex-shrink-0 border-l border-[#2d3748] flex flex-col bg-[#0a0d12] overflow-hidden">
-          {/* Header Section */}
-          <div className="p-4 border-b border-[#2d3748] flex-shrink-0">
+        <div className="w-[340px] flex-shrink-0 border-l border-[#1a1a1a] flex flex-col bg-black overflow-hidden">
+          <div className="p-4 border-b border-[#1a1a1a] flex-shrink-0">
             <div className="flex items-center justify-between mb-4">
               <h3 className="text-[13px] font-semibold text-gray-200">
                 AI Insights
               </h3>
               {explanation && getConfidenceBadge(explanation.confidence || 0)}
             </div>
-            
-            {/* Explanation Level Toggle */}
+
             <div className="flex space-x-2">
               {(['beginner', 'intermediate', 'advanced'] as const).map((level) => (
                 <button
                   key={level}
                   onClick={() => setExplanationLevel(level)}
-                  className={`flex-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium transition-colors ${
+                  className={`flex-1 px-2.5 py-1.5 rounded-full text-[11px] font-medium font-mono transition-colors ${
                     explanationLevel === level
-                      ? 'bg-blue-600 text-white'
-                      : 'bg-[#2d3748] text-gray-400 hover:bg-[#3d4758] hover:text-gray-300'
+                      ? 'bg-white text-black'
+                      : 'bg-[#1a1a1a] text-gray-400 hover:bg-[#2a2a2a] hover:text-gray-300'
                   }`}
                 >
                   {level.charAt(0).toUpperCase() + level.slice(1)}
@@ -689,32 +649,29 @@ export function RepoExplorerPagePremium() {
             </div>
           </div>
 
-          {/* Content Section */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3">
             {isLoadingExplanation ? (
               <div className="flex items-center justify-center py-12">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
               </div>
             ) : explanation ? (
               <>
-                {/* Purpose Card */}
-                <div className="p-4 bg-[#0a0d12] border border-[#2d3748] rounded">
+                <div className="p-4 bg-black border border-[#1a1a1a] rounded">
                   <h4 className="text-[12px] font-semibold text-white mb-2">
                     Purpose
                   </h4>
                   <p className="text-[12px] text-gray-400 leading-relaxed">{explanation.purpose}</p>
                 </div>
 
-                {/* Execution Flow Card */}
                 {explanation.executionFlow && explanation.executionFlow.length > 0 && (
-                  <div className="p-4 bg-[#0a0d12] border border-[#2d3748] rounded">
+                  <div className="p-4 bg-black border border-[#1a1a1a] rounded">
                     <h4 className="text-[12px] font-semibold text-white mb-3">
                       Execution Flow
                     </h4>
                     <ol className="space-y-2">
                       {explanation.executionFlow.map((step, index) => (
                         <li key={index} className="flex items-start space-x-2">
-                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-600/20 text-blue-400 text-[10px] font-bold flex items-center justify-center">
+                          <span className="flex-shrink-0 w-5 h-5 rounded-full bg-white/10 text-white text-[10px] font-bold flex items-center justify-center">
                             {index + 1}
                           </span>
                           <span className="text-[11px] text-gray-400 leading-relaxed pt-0.5">{step}</span>
@@ -724,9 +681,8 @@ export function RepoExplorerPagePremium() {
                   </div>
                 )}
 
-                {/* Design Patterns Card */}
                 {explanation.designPatterns && explanation.designPatterns.length > 0 && (
-                  <div className="p-4 bg-[#0a0d12] border border-[#2d3748] rounded">
+                  <div className="p-4 bg-black border border-[#1a1a1a] rounded">
                     <h4 className="text-[12px] font-semibold text-white mb-2">
                       Design Patterns
                     </h4>
@@ -734,7 +690,7 @@ export function RepoExplorerPagePremium() {
                       {explanation.designPatterns.map((pattern, index) => (
                         <span
                           key={index}
-                          className="px-2 py-1 bg-purple-500/10 text-purple-400 text-[10px] font-medium rounded-full border border-purple-500/20"
+                          className="px-2 py-1 bg-white/5 text-gray-300 text-[10px] font-medium rounded-full border border-white/10"
                         >
                           {pattern}
                         </span>
@@ -743,9 +699,8 @@ export function RepoExplorerPagePremium() {
                   </div>
                 )}
 
-                {/* Dependencies Card */}
                 {explanation.dependencies && explanation.dependencies.length > 0 && (
-                  <div className="p-4 bg-[#0a0d12] border border-[#2d3748] rounded">
+                  <div className="p-4 bg-black border border-[#1a1a1a] rounded">
                     <h4 className="text-[12px] font-semibold text-white mb-2">
                       Dependencies
                     </h4>
@@ -753,7 +708,7 @@ export function RepoExplorerPagePremium() {
                       {explanation.dependencies.slice(0, 10).map((dep, index) => (
                         <span
                           key={index}
-                          className="px-2 py-1 bg-[#2d3748] text-gray-400 text-[10px] rounded-full font-mono"
+                          className="px-2 py-1 bg-[#1a1a1a] text-gray-400 text-[10px] rounded-full font-mono"
                         >
                           {dep}
                         </span>
@@ -762,9 +717,8 @@ export function RepoExplorerPagePremium() {
                   </div>
                 )}
 
-                {/* Complexity Score Card */}
                 {explanation.complexity && (
-                  <div className="p-4 bg-[#0a0d12] border border-[#2d3748] rounded">
+                  <div className="p-4 bg-black border border-[#1a1a1a] rounded">
                     <h4 className="text-[12px] font-semibold text-white mb-3">
                       Complexity Score
                     </h4>
@@ -772,21 +726,17 @@ export function RepoExplorerPagePremium() {
                       <div className="flex items-center justify-between">
                         <span className="text-2xl font-bold text-white">{explanation.complexity.score}<span className="text-sm text-gray-500">/10</span></span>
                         <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
-                          explanation.complexity.score <= 3 ? 'bg-green-500/20 text-green-400' :
-                          explanation.complexity.score <= 6 ? 'bg-yellow-500/20 text-yellow-400' :
-                          'bg-red-500/20 text-red-400'
+                          explanation.complexity.score <= 3 ? 'bg-white/10 text-white' :
+                          explanation.complexity.score <= 6 ? 'bg-white/5 text-gray-400' :
+                          'bg-white/5 text-gray-500'
                         }`}>
                           {explanation.complexity.score <= 3 ? 'Low' :
                            explanation.complexity.score <= 6 ? 'Medium' : 'High'}
                         </span>
                       </div>
-                      <div className="w-full bg-[#2d3748] rounded-full h-2 overflow-hidden">
+                      <div className="w-full bg-[#1a1a1a] rounded-full h-2 overflow-hidden">
                         <div
-                          className={`h-2 rounded-full transition-all duration-700 ease-out ${
-                            explanation.complexity.score <= 3 ? 'bg-green-500' :
-                            explanation.complexity.score <= 6 ? 'bg-yellow-500' :
-                            'bg-red-500'
-                          }`}
+                          className="h-2 rounded-full transition-all duration-700 ease-out bg-white"
                           style={{ width: `${(explanation.complexity.score / 10) * 100}%` }}
                         ></div>
                       </div>
@@ -797,16 +747,15 @@ export function RepoExplorerPagePremium() {
                   </div>
                 )}
 
-                {/* Suggestions Card */}
                 {explanation.improvementSuggestions && explanation.improvementSuggestions.length > 0 && (
-                  <div className="p-4 bg-[#0a0d12] border border-[#2d3748] rounded">
+                  <div className="p-4 bg-black border border-[#1a1a1a] rounded">
                     <h4 className="text-[12px] font-semibold text-white mb-2">
                       Suggestions
                     </h4>
                     <ul className="space-y-2">
                       {explanation.improvementSuggestions.map((suggestion, index) => (
                         <li key={index} className="flex items-start space-x-2">
-                          <span className="text-yellow-500 mt-0.5 text-[10px]">▸</span>
+                          <span className="text-gray-500 mt-0.5 text-[10px]">▸</span>
                           <span className="text-[11px] text-gray-400 leading-relaxed">{suggestion}</span>
                         </li>
                       ))}

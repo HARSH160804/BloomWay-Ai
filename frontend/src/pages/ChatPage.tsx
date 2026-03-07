@@ -6,7 +6,7 @@ export function ChatPage() {
 
   if (!repoId) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ background: '#0a0c12' }}>
+      <div className="min-h-screen flex items-center justify-center" style={{ background: '#000000' }}>
         <div className="text-center">
           <p className="text-gray-400 text-lg">Repository not found</p>
           <p className="text-gray-500 text-sm mt-2">Please select a repository from the dashboard</p>
@@ -16,37 +16,35 @@ export function ChatPage() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col" style={{ background: '#0a0c12' }}>
+    <div className="min-h-screen flex flex-col" style={{ background: '#000000' }}>
       {/* Custom Navbar with Glassmorphism */}
-      <header className="sticky top-0 z-50 backdrop-blur-md" style={{ 
-        background: 'rgba(10, 12, 18, 0.8)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+      <header className="sticky top-0 z-50 backdrop-blur-md" style={{
+        background: 'rgba(0, 0, 0, 0.8)',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
       }}>
         <div className="px-6 py-3 flex items-center justify-between">
           {/* Left Section */}
           <div className="flex items-center space-x-3">
-            {/* BloomWay AI Logo */}
             <Link to={`/repo/${repoId}`} className="flex items-center space-x-2">
-              <img 
-                src="/logo_bloomway.png" 
-                alt="BloomWay AI Logo" 
+              <img
+                src="/logo_bloomway.png"
+                alt="BloomWay AI Logo"
                 className="w-8 h-8 rounded-xl object-contain"
               />
               <span className="text-[14px] font-bold tracking-wide">
-                <span className="text-gray-200">BLOOMWAY</span>
-                <span className="text-gray-500">·</span>
-                <span className="text-blue-400">AI</span>
+                <span className="text-white">BLOOMWAY</span>
+                <span className="text-gray-600">·</span>
+                <span className="text-gray-400">AI</span>
               </span>
             </Link>
-            
-            {/* Vertical Separator */}
+
             <div className="h-5 w-px" style={{ background: 'rgba(255, 255, 255, 0.1)' }}></div>
-            
+
             {/* AI Chat Capsule */}
-            <div className="px-3 py-1 rounded-full text-xs font-medium" style={{ 
-              background: 'rgba(59, 130, 246, 0.15)',
-              color: '#60a5fa',
-              border: '1px solid rgba(59, 130, 246, 0.3)'
+            <div className="px-3 py-1 rounded-full text-xs font-medium font-mono" style={{
+              background: 'rgba(255, 255, 255, 0.06)',
+              color: '#a3a3a3',
+              border: '1px solid rgba(255, 255, 255, 0.1)'
             }}>
               AI Chat
             </div>
@@ -54,9 +52,9 @@ export function ChatPage() {
 
           {/* Right Section - Navigation */}
           <div className="flex items-center space-x-2">
-            <Link 
+            <Link
               to={`/repo/${repoId}`}
-              className="px-3 py-1.5 text-gray-400 hover:text-gray-200 transition-colors font-medium flex items-center space-x-1.5"
+              className="px-3 py-1.5 text-gray-400 hover:text-white transition-colors font-mono font-medium flex items-center space-x-1.5"
               style={{ fontSize: '12px' }}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,9 +62,9 @@ export function ChatPage() {
               </svg>
               <span>Dashboard</span>
             </Link>
-            <Link 
+            <Link
               to={`/repo/${repoId}/architecture`}
-              className="px-3 py-1.5 text-gray-400 hover:text-gray-200 transition-colors font-medium flex items-center space-x-1.5"
+              className="px-3 py-1.5 text-gray-400 hover:text-white transition-colors font-mono font-medium flex items-center space-x-1.5"
               style={{ fontSize: '12px' }}
             >
               <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -81,7 +81,7 @@ export function InteractiveGraph({ nodes, edges, onNodeClick, width = 800, heigh
         return '#3b82f6' // blue
       case 'api':
       case 'controller':
-        return '#8b5cf6' // purple
+        return '#737373' // gray
       case 'business':
       case 'service':
         return '#10b981' // green
@@ -219,7 +219,7 @@ export function InteractiveGraph({ nodes, edges, onNodeClick, width = 800, heigh
         <div className="space-y-1">
           {[
             { type: 'Frontend', color: '#3b82f6' },
-            { type: 'API', color: '#8b5cf6' },
+            { type: 'API', color: '#737373' },
             { type: 'Business', color: '#10b981' },
             { type: 'Data', color: '#f59e0b' },
             { type: 'Infrastructure', color: '#ef4444' }

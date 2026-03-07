@@ -53,16 +53,15 @@ export function ChatInterface({ repoId }: ChatInterfaceProps) {
       {/* Empty State - Compact header with suggestions */}
       {messages.length === 0 && !error && (
         <div className="flex flex-col space-y-6 pt-8 pb-6">
-          {/* Header - Premium typography */}
           <div className="text-center space-y-3">
-            <h1 className="font-semibold text-white" style={{ 
+            <h1 className="font-semibold text-white" style={{
               fontSize: '42px',
               lineHeight: '1.2',
               letterSpacing: '-0.02em'
             }}>
-              Ask anything about this <span style={{ color: '#3b82f6' }}>repository</span>
+              Ask anything about this <span style={{ color: '#a3a3a3' }}>repository</span>
             </h1>
-            <p className="text-gray-400" style={{ 
+            <p className="text-gray-500" style={{
               fontSize: '16px',
               opacity: 0.75
             }}>
@@ -82,10 +81,10 @@ export function ChatInterface({ repoId }: ChatInterfaceProps) {
                 key={index}
                 onClick={() => handleSuggestedQuestion(question)}
                 disabled={isLoading}
-                className="text-gray-300 rounded-full transition-all hover:text-white hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="text-gray-300 rounded-full transition-all hover:text-white hover:scale-105 disabled:opacity-50 disabled:cursor-not-allowed font-mono"
                 style={{
-                  background: '#0f1419',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  background: '#0a0a0a',
+                  border: '1px solid rgba(255, 255, 255, 0.08)',
                   fontSize: '14px',
                   padding: '8px 14px'
                 }}
@@ -99,19 +98,18 @@ export function ChatInterface({ repoId }: ChatInterfaceProps) {
 
       {/* Messages - Left-aligned conversation */}
       {messages.length > 0 && (
-        <div 
+        <div
           ref={messagesContainerRef}
           className="flex-1 overflow-y-auto py-4 space-y-4 relative"
         >
           {messages.map((message, index) => (
             <div key={index} className="w-full">
               {message.role === 'user' ? (
-                // User message - Right aligned, compact bubble
                 <div className="flex justify-end">
                   <div
-                    className="max-w-[70%] px-4 py-2 rounded-2xl text-white"
-                    style={{ 
-                      background: '#3b82f6',
+                    className="max-w-[70%] px-4 py-2 rounded-2xl text-black"
+                    style={{
+                      background: '#ffffff',
                       fontSize: '15px'
                     }}
                   >
@@ -119,36 +117,34 @@ export function ChatInterface({ repoId }: ChatInterfaceProps) {
                   </div>
                 </div>
               ) : (
-                // Assistant message - Left aligned, wider panel
                 <div className="flex justify-start">
                   <div
                     className="max-w-[85%] px-5 py-4 rounded-2xl text-gray-100 space-y-4"
                     style={{
-                      background: '#0f1419',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      background: '#0a0a0a',
+                      border: '1px solid rgba(255, 255, 255, 0.08)',
                       lineHeight: '1.6'
                     }}
                   >
-                    {/* AI Response Content */}
                     <div className="whitespace-pre-wrap leading-relaxed" style={{ fontSize: '15px' }}>
                       {message.content}
                     </div>
-                    
+
                     {/* Code Citation Blocks */}
                     {message.citations && message.citations.length > 0 && (
-                      <div className="space-y-2 pt-3 border-t border-gray-700">
+                      <div className="space-y-2 pt-3 border-t border-gray-800">
                         <p className="text-gray-400 font-medium mb-2" style={{ fontSize: '12px' }}>Referenced Files</p>
                         {message.citations.map((citation, idx) => (
-                          <div 
-                            key={idx} 
+                          <div
+                            key={idx}
                             className="flex items-start space-x-2 px-3 py-2 rounded-lg"
-                            style={{ background: 'rgba(59, 130, 246, 0.1)', border: '1px solid rgba(59, 130, 246, 0.2)' }}
+                            style={{ background: 'rgba(255, 255, 255, 0.04)', border: '1px solid rgba(255, 255, 255, 0.08)' }}
                           >
-                            <svg className="w-4 h-4 text-blue-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <svg className="w-4 h-4 text-gray-400 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                             </svg>
                             <div className="flex-1 min-w-0">
-                              <div className="font-mono text-blue-300 truncate" style={{ fontSize: '14px' }}>
+                              <div className="font-mono text-gray-300 truncate" style={{ fontSize: '14px' }}>
                                 {citation.file.split('/').pop()}
                               </div>
                               <div className="text-gray-500 truncate" style={{ fontSize: '12px' }}>
@@ -172,11 +168,11 @@ export function ChatInterface({ repoId }: ChatInterfaceProps) {
               <div
                 className="px-5 py-4 rounded-2xl flex items-center space-x-3"
                 style={{
-                  background: '#0f1419',
-                  border: '1px solid rgba(255, 255, 255, 0.1)'
+                  background: '#0a0a0a',
+                  border: '1px solid rgba(255, 255, 255, 0.08)'
                 }}
               >
-                <svg className="animate-spin h-4 w-4 text-blue-400" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
@@ -187,8 +183,8 @@ export function ChatInterface({ repoId }: ChatInterfaceProps) {
 
           {error && (
             <div className="flex justify-center">
-              <div className="rounded-2xl px-4 py-3 text-red-400" style={{ 
-                background: 'rgba(239, 68, 68, 0.1)', 
+              <div className="rounded-2xl px-4 py-3 text-red-400" style={{
+                background: 'rgba(239, 68, 68, 0.1)',
                 border: '1px solid rgba(239, 68, 68, 0.2)',
                 fontSize: '15px'
               }}>
@@ -205,11 +201,11 @@ export function ChatInterface({ repoId }: ChatInterfaceProps) {
               onClick={scrollToBottom}
               className="fixed bottom-24 right-8 p-3 rounded-full shadow-lg transition-all hover:scale-110"
               style={{
-                background: '#3b82f6',
+                background: '#ffffff',
                 border: '1px solid rgba(255, 255, 255, 0.1)'
               }}
             >
-              <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-5 h-5 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
               </svg>
             </button>
@@ -217,7 +213,7 @@ export function ChatInterface({ repoId }: ChatInterfaceProps) {
         </div>
       )}
 
-      {/* Input Area - Enhanced with shortcuts hint */}
+      {/* Input Area */}
       <div className="py-4">
         <form onSubmit={handleSubmit} className="flex space-x-3">
           <input
@@ -226,19 +222,20 @@ export function ChatInterface({ repoId }: ChatInterfaceProps) {
             onChange={(e) => setInput(e.target.value)}
             placeholder="Ask about the codebase... (@file, /search, /explain)"
             disabled={isLoading}
-            className="flex-1 px-5 py-3 rounded-full text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
-            style={{ 
-              background: '#0f1419',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
+            className="flex-1 px-5 py-3 rounded-full text-gray-100 placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-white/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            style={{
+              background: '#0a0a0a',
+              border: '1px solid rgba(255, 255, 255, 0.08)',
               fontSize: '15px'
             }}
           />
           <button
             type="submit"
             disabled={!input.trim() || isLoading}
-            className="px-6 py-3 text-white font-medium rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2"
+            className="px-6 py-3 font-medium rounded-full transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center space-x-2 font-mono"
             style={{
-              background: !input.trim() || isLoading ? '#374151' : '#3b82f6'
+              background: !input.trim() || isLoading ? '#1a1a1a' : '#ffffff',
+              color: !input.trim() || isLoading ? '#525252' : '#000000'
             }}
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

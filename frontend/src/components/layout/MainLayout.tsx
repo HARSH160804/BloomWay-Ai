@@ -14,35 +14,32 @@ export function MainLayout({ children, showSidebar = false, architecturePatterns
   const params = useParams<{ repoId: string }>()
   const location = useLocation()
   const repoId = propRepoId || params.repoId
-  
+
   // Check if we're on the architecture page
   const isArchitecturePage = location.pathname.includes('/architecture')
 
   return (
     <div className={`min-h-screen ${darkMode ? 'dark' : ''}`}>
-      <div className="min-h-screen text-gray-100" style={{ background: '#0a0e14' }}>
+      <div className="min-h-screen text-gray-100" style={{ background: '#000000' }}>
         {/* Header */}
-        <header className="sticky top-0 z-50" style={{ 
-          background: '#0a0e14',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+        <header className="sticky top-0 z-50" style={{
+          background: '#000000',
+          borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
         }}>
           <div className="px-6 py-3 flex items-center justify-between">
             <div className="flex items-center space-x-3">
               <Link to="/" className="flex items-center space-x-2">
-                {/* BloomWay AI Logo */}
-                <img 
-                  src="/logo_bloomway.png" 
-                  alt="BloomWay AI Logo" 
+                <img
+                  src="/logo_bloomway.png"
+                  alt="BloomWay AI Logo"
                   className="w-8 h-8 rounded-xl object-contain"
                 />
-                {/* BLOOMWAY·AI Text */}
                 <span className="text-[14px] font-bold tracking-wide">
-                  <span className="text-gray-200">BLOOMWAY</span>
-                  <span className="text-gray-500">·</span>
-                  <span className="text-blue-400">AI</span>
+                  <span className="text-white">BLOOMWAY</span>
+                  <span className="text-gray-600">·</span>
+                  <span className="text-gray-400">AI</span>
                 </span>
               </Link>
-              {/* Vertical Separator Line */}
               <div className="h-5 w-px" style={{ background: 'rgba(255, 255, 255, 0.1)' }}></div>
               {architecturePatterns && architecturePatterns.length > 0 && (
                 <div className="flex items-center space-x-2">
@@ -50,9 +47,9 @@ export function MainLayout({ children, showSidebar = false, architecturePatterns
                     <div
                       key={index}
                       className="px-2.5 py-0.5 rounded-full text-xs font-medium"
-                      style={{ 
-                        background: 'rgba(55, 65, 81, 0.8)',
-                        color: '#d1d5db'
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.06)',
+                        color: '#a3a3a3'
                       }}
                     >
                       {pattern}
@@ -64,9 +61,9 @@ export function MainLayout({ children, showSidebar = false, architecturePatterns
 
             <div className="flex items-center space-x-2">
               {repoId ? (
-                <Link 
+                <Link
                   to={`/repo/${repoId}`}
-                  className="px-3 py-1.5 text-gray-400 hover:text-gray-200 transition-colors font-medium flex items-center space-x-1.5"
+                  className="px-3 py-1.5 text-gray-400 hover:text-white transition-colors font-mono font-medium flex items-center space-x-1.5"
                   style={{ fontSize: '12px' }}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -75,9 +72,9 @@ export function MainLayout({ children, showSidebar = false, architecturePatterns
                   <span>Dashboard</span>
                 </Link>
               ) : (
-                <Link 
-                  to="/" 
-                  className="px-3 py-1.5 text-gray-400 hover:text-gray-200 transition-colors font-medium flex items-center space-x-1.5"
+                <Link
+                  to="/"
+                  className="px-3 py-1.5 text-gray-400 hover:text-white transition-colors font-mono font-medium flex items-center space-x-1.5"
                   style={{ fontSize: '12px' }}
                 >
                   <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -89,9 +86,9 @@ export function MainLayout({ children, showSidebar = false, architecturePatterns
               {repoId && (
                 <>
                   {!isArchitecturePage && (
-                    <Link 
+                    <Link
                       to={`/repo/${repoId}/architecture`}
-                      className="px-3 py-1.5 text-gray-400 hover:text-gray-200 transition-colors font-medium flex items-center space-x-1.5"
+                      className="px-3 py-1.5 text-gray-400 hover:text-white transition-colors font-mono font-medium flex items-center space-x-1.5"
                       style={{ fontSize: '12px' }}
                     >
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -100,9 +97,9 @@ export function MainLayout({ children, showSidebar = false, architecturePatterns
                       <span>Architecture</span>
                     </Link>
                   )}
-                  <Link 
+                  <Link
                     to={`/repo/${repoId}/chat`}
-                    className="px-3 py-1.5 text-gray-400 hover:text-gray-200 transition-colors font-medium flex items-center space-x-1.5"
+                    className="px-3 py-1.5 text-gray-400 hover:text-white transition-colors font-mono font-medium flex items-center space-x-1.5"
                     style={{ fontSize: '12px' }}
                   >
                     <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -119,11 +116,10 @@ export function MainLayout({ children, showSidebar = false, architecturePatterns
         {/* Main Content */}
         <div className="flex h-[calc(100vh-57px)]">
           {showSidebar && (
-            <aside className="w-64 overflow-y-auto" style={{ 
-              background: '#0a0e14',
-              borderRight: '1px solid rgba(255, 255, 255, 0.05)'
+            <aside className="w-64 overflow-y-auto" style={{
+              background: '#000000',
+              borderRight: '1px solid rgba(255, 255, 255, 0.06)'
             }}>
-              {/* Sidebar content will be injected here */}
             </aside>
           )}
           <main className="flex-1 overflow-hidden">

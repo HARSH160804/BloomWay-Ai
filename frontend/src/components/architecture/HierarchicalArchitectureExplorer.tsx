@@ -38,7 +38,7 @@ interface HierarchicalArchitectureExplorerProps {
 const LAYER_COLORS: Record<string, string> = {
   presentation: '#3b82f6', // Blue
   frontend: '#3b82f6',
-  api: '#7c3aed', // Purple
+  api: '#737373', // Gray
   business: '#10b981', // Green
   service: '#10b981',
   data: '#f59e0b', // Orange

@@ -6,8 +6,8 @@ export function IngestionStatusPage() {
 
   if (!jobId) {
     return (
-      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#080b15' }}>
-        <div className="text-center p-8 bg-[#1a1f2e] rounded-2xl border border-gray-800">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: '#000000' }}>
+        <div className="text-center p-8 bg-[#0a0a0a] rounded-2xl border border-gray-800">
           <h2 className="text-2xl font-bold text-white mb-2">
             Invalid Job ID
           </h2>
@@ -20,7 +20,7 @@ export function IngestionStatusPage() {
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#080b15' }}>
+    <div className="min-h-screen flex items-center justify-center p-6" style={{ backgroundColor: '#000000' }}>
       <IngestionStatusDisplay jobId={jobId} />
     </div>
   )

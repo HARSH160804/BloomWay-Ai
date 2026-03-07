@@ -12,11 +12,10 @@ export function ProcessingScreen() {
   const [progress, setProgress] = useState(35)
 
   useEffect(() => {
-    // Simulate realistic progress animation
     const interval = setInterval(() => {
       setProgress((prev) => {
-        if (prev >= 85) return 35 // Reset for demo
-        return prev + 0.3 // Slow, steady progress
+        if (prev >= 85) return 35
+        return prev + 0.3
       })
     }, 100)
 
@@ -26,13 +25,13 @@ export function ProcessingScreen() {
   return (
     <div
       className="fixed inset-0 flex items-center justify-center overflow-hidden"
-      style={{ backgroundColor: '#080b15' }}
+      style={{ backgroundColor: '#000000' }}
     >
       {/* Subtle background glow */}
       <div
         className="absolute inset-0"
         style={{
-          background: 'radial-gradient(circle at center, rgba(59,130,246,0.08), transparent 60%)',
+          background: 'radial-gradient(circle at center, rgba(255,255,255,0.03), transparent 60%)',
         }}
       />
 
@@ -47,51 +46,47 @@ export function ProcessingScreen() {
           maxWidth: '90vw',
         }}
       >
-        {/* Spinner with subtle glow */}
+        {/* Spinner */}
         <div className="mb-6 relative inline-block">
-          {/* Subtle glow behind spinner */}
           <div
             className="absolute inset-0 rounded-full blur-xl"
             style={{
-              background: 'radial-gradient(circle, rgba(59,130,246,0.15), transparent 60%)',
+              background: 'radial-gradient(circle, rgba(255,255,255,0.08), transparent 60%)',
             }}
           />
-          {/* Improved spinner with gradient */}
           <div
             className="relative w-12 h-12 rounded-full"
             style={{
               border: '3px solid rgba(255,255,255,0.1)',
-              borderTopColor: '#3b82f6',
+              borderTopColor: '#ffffff',
               animation: 'spin 1s linear infinite',
             }}
           />
         </div>
 
-        {/* Title - Larger and more specific */}
         <h2 className="text-[30px] font-semibold text-white mb-2 leading-tight">
           Analyzing repository architecture
         </h2>
 
-        {/* Subtitle - More technical */}
-        <p className="text-gray-400 text-base mb-6 leading-relaxed">
+        <p className="text-gray-500 text-base mb-6 leading-relaxed">
           Parsing files and detecting architectural patterns.
         </p>
 
-        {/* Progress bar with animated progress */}
+        {/* Progress bar */}
         <div
           className="w-full rounded-full h-1.5 mb-6 overflow-hidden"
-          style={{ background: '#1f2937' }}
+          style={{ background: '#1a1a1a' }}
         >
           <div
             className="h-full rounded-full transition-all duration-300 ease-out"
             style={{
               width: `${progress}%`,
-              background: 'linear-gradient(90deg, #3b82f6, #6366f1)',
+              background: 'linear-gradient(90deg, #ffffff, #a3a3a3)',
             }}
           />
         </div>
 
-        {/* Processing steps with checkmarks */}
+        {/* Processing steps */}
         <div className="space-y-3 text-left">
           {PROCESSING_STEPS.map((step, index) => (
             <div
@@ -99,13 +94,13 @@ export function ProcessingScreen() {
               className="flex items-center space-x-3 text-sm"
             >
               {step.completed ? (
-                <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-blue-600 text-white">
+                <span className="flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white text-black">
                   ✓
                 </span>
               ) : step.active ? (
-                <div className="flex-shrink-0 w-5 h-5 rounded-full border-2 border-blue-600 flex items-center justify-center">
+                <div className="flex-shrink-0 w-5 h-5 rounded-full border-2 border-white flex items-center justify-center">
                   <div
-                    className="w-2 h-2 rounded-full bg-blue-600"
+                    className="w-2 h-2 rounded-full bg-white"
                     style={{ animation: 'pulse 1.5s ease-in-out infinite' }}
                   />
                 </div>
@@ -119,8 +114,8 @@ export function ProcessingScreen() {
                   step.completed
                     ? 'text-gray-300'
                     : step.active
-                    ? 'text-blue-400'
-                    : 'text-gray-500'
+                    ? 'text-white'
+                    : 'text-gray-600'
                 }
               >
                 {step.text}
@@ -130,26 +125,14 @@ export function ProcessingScreen() {
         </div>
       </div>
 
-      {/* CSS animations */}
       <style>{`
         @keyframes spin {
-          from {
-            transform: rotate(0deg);
-          }
-          to {
-            transform: rotate(360deg);
-          }
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
-        
         @keyframes pulse {
-          0%, 100% {
-            opacity: 1;
-            transform: scale(1);
-          }
-          50% {
-            opacity: 0.5;
-            transform: scale(0.8);
-          }
+          0%, 100% { opacity: 1; transform: scale(1); }
+          50% { opacity: 0.5; transform: scale(0.8); }
         }
       `}</style>
     </div>

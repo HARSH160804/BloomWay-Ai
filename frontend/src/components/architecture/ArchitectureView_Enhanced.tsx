@@ -21,12 +21,12 @@ mermaid.initialize({
   securityLevel: 'loose',
   fontFamily: 'ui-monospace, monospace',
   themeVariables: {
-    primaryColor: '#1e40af',
+    primaryColor: '#ffffff',
     primaryTextColor: '#e5e7eb',
-    primaryBorderColor: '#3b82f6',
-    lineColor: '#6b7280',
-    secondaryColor: '#7c3aed',
-    tertiaryColor: '#059669',
+    primaryBorderColor: '#ffffff',
+    lineColor: '#404040',
+    secondaryColor: '#a3a3a3',
+    tertiaryColor: '#737373',
   },
 })
 
@@ -182,8 +182,8 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
 
   // Helper function to get confidence color
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 0.85) return 'text-green-400'
-    if (confidence >= 0.70) return 'text-blue-400'
+    if (confidence >= 0.85) return 'text-gray-300'
+    if (confidence >= 0.70) return 'text-gray-300'
     if (confidence >= 0.50) return 'text-yellow-400'
     return 'text-red-400'
   }
@@ -197,7 +197,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: '#0a0e14' }}>
+    <div className="flex flex-col h-full" style={{ background: '#000000' }}>
       {/* Content */}
       <div className="flex-1 overflow-y-auto">
         {isLoading && (
@@ -226,11 +226,11 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id as any)}
-                    className="relative px-5 py-2 text-sm font-medium transition-all duration-200 rounded-full"
+                    className="relative px-5 py-2 text-sm font-medium font-mono transition-all duration-200 rounded-full"
                     style={{
-                      background: activeTab === tab.id ? '#2563eb' : 'transparent',
-                      color: activeTab === tab.id ? '#ffffff' : '#6b7280',
-                      boxShadow: activeTab === tab.id ? '0 2px 8px rgba(37, 99, 235, 0.35)' : 'none',
+                      background: activeTab === tab.id ? '#ffffff' : 'transparent',
+                      color: activeTab === tab.id ? '#000000' : '#6b7280',
+                      boxShadow: activeTab === tab.id ? '0 2px 8px rgba(255, 255, 255, 0.35)' : 'none',
                     }}
                   >
                     {tab.label}
@@ -260,7 +260,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
               <div className="flex items-center gap-3">
                 {/* Loading indicator during generation */}
                 {(docStatus === 'generating' || isGenerating) && (
-                  <div className="flex items-center gap-2 text-blue-400">
+                  <div className="flex items-center gap-2 text-gray-300">
                     <Loader2 className="w-4 h-4 animate-spin" />
                     <span className="text-sm">Generating...</span>
                   </div>
@@ -321,7 +321,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                 </div>
                 <button
                   onClick={clearExportError}
-                  className="text-red-400 hover:text-red-300 transition-colors"
+                  className="text-red-400 hover:text-red-300 font-mono transition-colors"
                   aria-label="Dismiss error"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -338,7 +338,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                 <>
                   {/* 1. Architecture Pattern */}
                   {currentArchitecture.patterns && Array.isArray(currentArchitecture.patterns) && currentArchitecture.patterns.length > 0 && (
-                    <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                    <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                       <h3 className="text-lg font-bold text-white mb-4">Architecture Pattern</h3>
                       {(() => {
                         const primaryPattern = currentArchitecture.patterns[0]
@@ -383,8 +383,8 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                               <div className="text-white text-xl font-semibold">
                                 {primaryPattern.name || 'Unknown Pattern'}
                               </div>
-                              <div className={`px-3 py-1 rounded-full text-sm font-medium ${primaryPattern.confidence >= 0.85 ? 'bg-green-900/30 text-green-400' :
-                                primaryPattern.confidence >= 0.70 ? 'bg-blue-900/30 text-blue-400' :
+                              <div className={`px-3 py-1 rounded-full text-sm font-medium ${primaryPattern.confidence >= 0.85 ? 'bg-gray-900/30 text-gray-300' :
+                                primaryPattern.confidence >= 0.70 ? 'bg-gray-900/30 text-gray-300' :
                                   primaryPattern.confidence >= 0.50 ? 'bg-yellow-900/30 text-yellow-400' :
                                     'bg-red-900/30 text-red-400'
                                 }`}>
@@ -398,7 +398,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                                   {signals.map((signal, i) => (
                                     <div key={i} className="flex items-center space-x-2 text-sm text-gray-300">
-                                      <span className="text-blue-400">•</span>
+                                      <span className="text-gray-300">•</span>
                                       <span>{signal}</span>
                                     </div>
                                   ))}
@@ -413,7 +413,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
 
                   {/* 2. Executive Summary */}
                   {currentArchitecture.patterns && currentArchitecture.patterns.length > 0 && (
-                    <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                    <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                       <h3 className="text-lg font-bold text-white mb-4">Executive Summary</h3>
                       <div className="rounded p-5 space-y-4" style={{ background: '#0d1117' }}>
                         <p className="text-gray-300 leading-relaxed">
@@ -432,7 +432,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                             <div className="text-gray-400 text-sm mb-2">Technology Stack:</div>
                             <div className="flex flex-wrap gap-2">
                               {currentArchitecture.tech_stack.slice(0, 8).map((tech, i) => (
-                                <span key={i} className="px-2 py-1 rounded text-xs" style={{ background: '#0a0e14', color: '#9ca3af' }}>
+                                <span key={i} className="px-2 py-1 rounded text-xs" style={{ background: '#000000', color: '#9ca3af' }}>
                                   {tech.name}
                                 </span>
                               ))}
@@ -452,7 +452,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                             <ul className="space-y-1">
                               {currentArchitecture.layers.map((layer, i) => (
                                 <li key={i} className="text-gray-300 text-sm flex items-start">
-                                  <span className="text-blue-400 mr-2">•</span>
+                                  <span className="text-gray-300 mr-2">•</span>
                                   <span className="capitalize">{layer.name} layer</span>
                                   {layer.components && layer.components.length > 0 && (
                                     <span className="text-gray-500 ml-1">({layer.components.length} components)</span>
@@ -467,7 +467,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                   )}
 
                   {/* 3. Architecture Confidence */}
-                  <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                  <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                     <div className="rounded p-5" style={{ background: '#0d1117' }}>
                       {/* Header Row: Title and Score */}
                       <div className="flex items-center justify-between mb-6">
@@ -476,7 +476,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                           <div className={`text-4xl font-bold ${getConfidenceColor(getConfidence())}`}>
                             {(getConfidence() * 100).toFixed(0)}%
                           </div>
-                          <div className="text-sm px-3 py-1 rounded" style={{ background: '#0a0e14', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
+                          <div className="text-sm px-3 py-1 rounded" style={{ background: '#000000', border: '1px solid rgba(255, 255, 255, 0.1)' }}>
                             <span className={`${getConfidenceColor(getConfidence())}`}>
                               [ {getConfidenceLabel(getConfidence())} ]
                             </span>
@@ -528,18 +528,18 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                             const percentage = (numValue * 100).toFixed(0)
                             
                             // Color based on metric type and value
-                            let barColor = '#3b82f6' // default blue
+                            let barColor = '#ffffff' // default blue
                             if (metric.color === 'structural') {
-                              barColor = numValue >= 0.7 ? '#10b981' : numValue >= 0.5 ? '#3b82f6' : '#fbbf24'
+                              barColor = numValue >= 0.7 ? '#d4d4d4' : numValue >= 0.5 ? '#ffffff' : '#fbbf24'
                             } else if (metric.color === 'quality') {
-                              barColor = numValue >= 0.7 ? '#10b981' : numValue >= 0.5 ? '#f59e0b' : '#ef4444'
+                              barColor = numValue >= 0.7 ? '#d4d4d4' : numValue >= 0.5 ? '#f59e0b' : '#ef4444'
                             }
 
                             return (
                               <div key={metric.key} className="flex items-center gap-4">
                                 <div className="w-48 text-sm text-gray-300">{metric.label}</div>
                                 <div className="flex-1 flex items-center gap-3">
-                                  <div className="flex-1 h-2 rounded-full" style={{ background: '#0a0d12' }}>
+                                  <div className="flex-1 h-2 rounded-full" style={{ background: '#000000' }}>
                                     <div
                                       className="h-full rounded-full transition-all"
                                       style={{
@@ -618,14 +618,14 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
 
                   {/* 4. Layer Breakdown */}
                   {currentArchitecture.layers && Array.isArray(currentArchitecture.layers) && currentArchitecture.layers.length > 0 && (
-                    <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                    <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                       <h3 className="text-lg font-bold text-white mb-4">Layer Breakdown</h3>
                       <div className="grid md:grid-cols-2 gap-4">
                         {currentArchitecture.layers.map((layer, index) => (
                           <div key={index} className="rounded p-5" style={{ background: '#0d1117' }}>
                             <div className="flex items-center justify-between mb-3">
                               <h4 className="text-white font-semibold capitalize">{layer.name} Layer</h4>
-                              <span className="text-xs px-2 py-1 rounded" style={{ background: '#0a0e14', color: '#9ca3af' }}>
+                              <span className="text-xs px-2 py-1 rounded" style={{ background: '#000000', color: '#9ca3af' }}>
                                 {(layer.components && Array.isArray(layer.components) ? layer.components.length : 0)} components
                               </span>
                             </div>
@@ -640,13 +640,13 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
 
                   {/* 6. Architecture Signals */}
                   {currentArchitecture.patterns && currentArchitecture.patterns.length > 0 && (
-                    <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                    <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                       <h3 className="text-lg font-bold text-white mb-4">Architecture Signals</h3>
                       <div className="rounded p-5" style={{ background: '#0d1117' }}>
                         <div className="space-y-2">
                           {/* Pattern detected */}
                           <div className="flex items-start space-x-2 text-sm">
-                            <span className="text-blue-400 mt-0.5">•</span>
+                            <span className="text-gray-300 mt-0.5">•</span>
                             <span className="text-gray-300">{currentArchitecture.patterns[0].name} pattern detected</span>
                           </div>
 
@@ -654,7 +654,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                           {currentArchitecture.patterns[0].pros && Array.isArray(currentArchitecture.patterns[0].pros) &&
                             currentArchitecture.patterns[0].pros.slice(0, 3).map((pro, i) => (
                               <div key={i} className="flex items-start space-x-2 text-sm">
-                                <span className="text-blue-400 mt-0.5">•</span>
+                                <span className="text-gray-300 mt-0.5">•</span>
                                 <span className="text-gray-300">{pro}</span>
                               </div>
                             ))
@@ -667,7 +667,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                               const label = key.replace(/_/g, ' ').replace(/score/g, '').trim()
                               return (
                                 <div key={key} className="flex items-start space-x-2 text-sm">
-                                  <span className="text-blue-400 mt-0.5">•</span>
+                                  <span className="text-gray-300 mt-0.5">•</span>
                                   <span className="text-gray-400">Moderate {label}</span>
                                 </div>
                               )
@@ -685,7 +685,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
               {activeTab === 'layers' && (
                 <>
                   {/* Hierarchical Architecture Explorer */}
-                  <div className="rounded-lg" style={{ background: '#0a0e14', border: '1px solid #151b24', minHeight: '800px' }}>
+                  <div className="rounded-lg" style={{ background: '#000000', border: '1px solid #151b24', minHeight: '800px' }}>
                     {currentArchitecture.layers && currentArchitecture.layers.length > 0 ? (
                       <HierarchicalArchitectureExplorer
                         layers={currentArchitecture.layers}
@@ -702,14 +702,14 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
 
                   {/* Architecture Layers */}
                   {currentArchitecture.layers && Array.isArray(currentArchitecture.layers) && currentArchitecture.layers.length > 0 && (
-                    <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                    <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                       <h3 className="text-lg font-bold text-white mb-4">Architecture Layers</h3>
                       <div className="space-y-3">
                         {currentArchitecture.layers.map((layer, index) => (
                           <div key={index} className="rounded p-5" style={{ background: '#0d1117' }}>
                             <div className="flex items-center justify-between mb-2">
                               <h4 className="text-white font-semibold capitalize">{layer.name} Layer</h4>
-                              <span className="text-xs px-2 py-1 rounded" style={{ background: '#0a0e14', color: '#9ca3af' }}>
+                              <span className="text-xs px-2 py-1 rounded" style={{ background: '#000000', color: '#9ca3af' }}>
                                 {(layer.components && Array.isArray(layer.components) ? layer.components.length : 0)} components
                               </span>
                             </div>
@@ -734,7 +734,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
 
                       if (!happyPath) {
                         return (
-                          <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                          <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                             <p className="text-gray-400 text-center">No data flow information available</p>
                           </div>
                         )
@@ -746,7 +746,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                       return (
                         <div className="space-y-6">
                           {/* Happy Path Execution Flow */}
-                          <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                          <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                             <h3 className="text-lg font-bold text-white mb-4">Execution Flow</h3>
                             <p className="text-gray-400 text-sm mb-6">{happyPath.description}</p>
 
@@ -757,7 +757,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                                   {happyPath.steps.map((step, stepIndex) => (
                                     <div key={stepIndex} className="flex items-center">
                                       {/* Component Card */}
-                                      <div className="rounded-lg p-4 min-w-[160px]" style={{ background: '#0d1117', border: '1px solid #3b82f6' }}>
+                                      <div className="rounded-lg p-4 min-w-[160px]" style={{ background: '#0d1117', border: '1px solid #ffffff' }}>
                                         <div className="text-white font-medium text-sm mb-1">{step.component}</div>
                                         <div className="text-gray-400 text-xs">{step.action}</div>
                                       </div>
@@ -779,11 +779,11 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
 
                           {/* Identified Bottlenecks */}
                           {allBottlenecks.length > 0 ? (
-                            <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                            <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                               <h3 className="text-lg font-bold text-white mb-4">Performance Insights</h3>
                               <div className="space-y-3">
                                 {allBottlenecks.map((bottleneck, bottleneckIndex) => (
-                                  <div key={bottleneckIndex} className="rounded p-4" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                                  <div key={bottleneckIndex} className="rounded p-4" style={{ background: '#000000', border: '1px solid #151b24' }}>
                                     <div className="flex items-start justify-between mb-3">
                                       <div className="flex items-center space-x-3">
                                         <div>
@@ -793,7 +793,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                                             <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${bottleneck.severity === 'critical' ? 'bg-red-900/30 text-red-400' :
                                               bottleneck.severity === 'high' ? 'bg-orange-900/30 text-orange-400' :
                                                 bottleneck.severity === 'medium' ? 'bg-yellow-900/30 text-yellow-400' :
-                                                  'bg-blue-900/30 text-blue-400'
+                                                  'bg-gray-900/30 text-gray-300'
                                               }`}>
                                               {bottleneck.severity.toUpperCase()}
                                             </span>
@@ -818,7 +818,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                               </div>
                             </div>
                           ) : (
-                            <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                            <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                               <p className="text-gray-400 text-center">No performance bottlenecks detected.</p>
                             </div>
                           )}
@@ -826,7 +826,7 @@ export function ArchitectureView({ repoId, onPatternsLoaded, onLoadingChange }: 
                       )
                     })()
                   ) : (
-                    <div className="rounded-lg p-6" style={{ background: '#0a0e14', border: '1px solid #151b24' }}>
+                    <div className="rounded-lg p-6" style={{ background: '#000000', border: '1px solid #151b24' }}>
                       <p className="text-gray-400 text-center">No data flow scenarios available</p>
                     </div>
                   )}

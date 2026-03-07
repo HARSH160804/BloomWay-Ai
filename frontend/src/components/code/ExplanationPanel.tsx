@@ -158,7 +158,7 @@ export function ExplanationPanel({ repoId, filePath, onRelatedFileClick }: Expla
                     {(currentExplanation.explanation.patterns || currentExplanation.explanation.designPatterns)?.map((pattern, index) => (
                       <span
                         key={index}
-                        className="px-3 py-1 bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-300 rounded-full text-sm font-medium"
+                        className="px-3 py-1 bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300 rounded-full text-sm font-medium"
                       >
                         {pattern}
                       </span>
