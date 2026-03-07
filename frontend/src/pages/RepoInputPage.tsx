@@ -184,7 +184,7 @@ export function RepoInputPage() {
                   onClick={() => handleNavClick(item.key)}
                   className={`px-4 py-1.5 rounded-full text-xs tracking-wide border transition-all duration-200 font-mono ${!repoId || isProcessing
                     ? 'border-white/[0.06] text-gray-600 cursor-not-allowed'
-                    : 'border-white/[0.08] text-gray-400 hover:text-white hover:bg-white/[0.06] hover:border-white/20 cursor-pointer'
+                    : 'border-white/[0.15] text-gray-400 hover:text-white hover:bg-white/[0.06] hover:border-white/20 cursor-pointer'
                     }`}
                 >
                   {item.label}
@@ -211,7 +211,7 @@ export function RepoInputPage() {
               href="https://github.com/HARSH160804/BloomWay-Ai"
               target="_blank"
               rel="noopener noreferrer"
-              className="ml-1 p-2 rounded-full border border-white/[0.08] text-gray-400 hover:text-white hover:bg-white/[0.06] hover:border-white/20 transition-all duration-200"
+              className="ml-1 p-2 rounded-full border border-white/[0.15] text-gray-400 hover:text-white hover:bg-white/[0.06] hover:border-white/20 transition-all duration-200"
               aria-label="View on GitHub"
             >
               <svg
@@ -277,7 +277,7 @@ export function RepoInputPage() {
         {/* Input Card */}
         <div
           className="w-full max-w-6xl rounded-2xl p-6"
-          style={{ background: '#0a0a0a', border: '1px solid rgba(255, 255, 255, 0.08)', boxShadow: '0 0 60px rgba(255,255,255,0.02)' }}
+          style={{ background: '#0a0a0a', border: '1px solid rgba(255, 255, 255, 0.15)', boxShadow: '0 0 60px rgba(255,255,255,0.02)' }}
         >
           <label className="block text-[11px] text-gray-500 tracking-[0.1em] mb-2">
             GITHUB REPOSITORY URL
@@ -292,7 +292,7 @@ export function RepoInputPage() {
               className="w-full rounded-[10px] py-3 pl-9 pr-4 text-[13px] text-gray-200 placeholder-gray-600 outline-none transition-colors duration-200 disabled:opacity-50"
               style={{
                 background: '#000000',
-                border: `1px solid ${repoUrl ? 'rgba(255,255,255,0.3)' : 'rgba(255,255,255,0.08)'}`,
+                border: `1px solid ${repoUrl ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)'}`,
               }}
             />
           </div>
@@ -303,7 +303,7 @@ export function RepoInputPage() {
             <button
               onClick={() => handleGithubUrlChange('https://github.com/HARSH160804/testrepo')}
               disabled={isProcessing}
-              className="px-4 py-2 rounded-full text-[12px] tracking-wide border transition-all duration-200 border-white/[0.08] text-gray-400 hover:text-white hover:bg-white/[0.06] hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+              className="px-4 py-2 rounded-full text-[12px] tracking-wide border transition-all duration-200 border-white/[0.15] text-gray-400 hover:text-white hover:bg-white/[0.06] hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed font-mono"
               style={{
                 background: 'rgba(0, 0, 0, 0.6)',
                 backdropFilter: 'blur(12px)',
@@ -315,7 +315,7 @@ export function RepoInputPage() {
             <button
               onClick={() => handleGithubUrlChange('https://github.com/HARSH160804/Discover-Dollar-Assignment')}
               disabled={isProcessing}
-              className="px-4 py-2 rounded-full text-[12px] tracking-wide border transition-all duration-200 border-white/[0.08] text-gray-400 hover:text-white hover:bg-white/[0.06] hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed font-mono"
+              className="px-4 py-2 rounded-full text-[12px] tracking-wide border transition-all duration-200 border-white/[0.15] text-gray-400 hover:text-white hover:bg-white/[0.06] hover:border-white/20 disabled:opacity-50 disabled:cursor-not-allowed font-mono"
               style={{
                 background: 'rgba(0, 0, 0, 0.6)',
                 backdropFilter: 'blur(12px)',
@@ -333,9 +333,9 @@ export function RepoInputPage() {
 
           {/* OR divider */}
           <div className="flex items-center gap-3 mb-5">
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.15)' }} />
             <span className="text-gray-600 text-[11px] tracking-[0.1em]">OR</span>
-            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            <div className="flex-1 h-px" style={{ background: 'rgba(255,255,255,0.15)' }} />
           </div>
 
           {/* Drop zone */}
@@ -346,7 +346,7 @@ export function RepoInputPage() {
             onClick={() => !isProcessing && fileInputRef.current?.click()}
             className="rounded-xl py-7 px-5 text-center cursor-pointer transition-all duration-200 mb-5"
             style={{
-              border: `2px dashed ${dragging ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.08)'}`,
+              border: `2px dashed ${dragging ? 'rgba(255,255,255,0.4)' : 'rgba(255,255,255,0.15)'}`,
               background: dragging ? 'rgba(255,255,255,0.02)' : 'transparent',
             }}
           >
