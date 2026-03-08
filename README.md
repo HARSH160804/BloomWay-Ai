@@ -11,6 +11,14 @@
 
 ---
 
+## 🏆 Hackathon Submission Details
+
+- **Team Name:** Old Monkey
+- **Team Members:** Harsh Amarnani, Suryanshi Singh, Aditya Malik
+- **Track:** Track 4 - AI for learning and developer productivity
+
+---
+
 ## Overview
 
 BloomWay AI is an intelligent codebase analysis platform that leverages Amazon Bedrock foundation models to help developers and students understand unfamiliar code repositories in minutes instead of hours. Built on AWS serverless architecture, it provides instant architecture insights, AI-generated documentation, and interactive Q&A capabilities.
