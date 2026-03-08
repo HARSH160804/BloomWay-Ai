@@ -11,7 +11,7 @@
 
 ---
 
-## 🏆 Hackathon Submission Details
+##  Hackathon Submission Details
 
 - **Team Name:** Old Monkey
 - **Team Members:** Harsh Amarnani, Suryanshi Singh, Aditya Malik
