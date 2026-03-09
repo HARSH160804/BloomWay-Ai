@@ -25,7 +25,7 @@ BloomWay AI is an intelligent codebase analysis platform that leverages Amazon B
 
 ### Key Features
 
-- **AI-Powered Analysis** - Uses Amazon Bedrock (Claude) for semantic code understanding
+- **AI-Powered Analysis** - Uses Amazon Bedrock (Nova lite) for semantic code understanding
 - **Architecture Visualization** - Auto-generated Mermaid diagrams showing system structure
 - **Interactive Q&A** - RAG-based chat interface for codebase questions
 - **Documentation Generation** - Automatic README, API docs, and getting-started guides
